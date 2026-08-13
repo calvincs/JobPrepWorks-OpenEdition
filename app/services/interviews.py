@@ -71,7 +71,7 @@ FOLLOWUP_THRESHOLD = 3
 
 
 def skill_performance(conn, user_id: int) -> dict[str, tuple[float, int]]:
-    """Rolling average score and answer count per canonical skill (FR-11 mastery
+    """Rolling average score and answer count per canonical skill (the mastery
     data). A graded follow-up is the candidate's final answer, so it supersedes
     the initial score (COALESCE)."""
     rows = conn.execute(
@@ -407,7 +407,7 @@ def submit_answer(session_id: int, answer_text: str) -> int | None:
 
 
 def grade_answer(answer_id: int) -> None:
-    """Background pipeline for FR-6: grade one answer against its criteria."""
+    """Background pipeline: grade one answer against its criteria."""
     try:
         done = _grade_answer(answer_id)
     except Exception:
@@ -644,8 +644,8 @@ def finish_session(session_id: int, *, abandoned: bool = False, assess: bool = T
 
 
 def run_assessment(session_id: int) -> None:
-    """Background pipeline after completion: assessment (FR-6), then study guide
-    refresh (FR-7) and award checks (FR-11)."""
+    """Background pipeline after completion: assessment, then a study-guide
+    refresh and award checks."""
     try:
         done = _run_assessment(session_id)
     except Exception:

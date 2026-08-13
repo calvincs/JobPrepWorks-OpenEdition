@@ -1,4 +1,4 @@
-"""Insights pipeline (FR-8): run lifecycle, staleness marking, dismissal
+"""Insights pipeline: run lifecycle, staleness marking, dismissal
 stickiness, claim exclusivity, crash recovery, pruning, and ownership scoping."""
 
 from starlette.testclient import TestClient

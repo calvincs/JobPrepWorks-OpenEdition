@@ -110,7 +110,7 @@ class OpenAICompatProvider:
         use_response_format = True
         last_exc: Exception | None = None
         attempts = 0
-        while attempts < 2:  # SPEC section 9: invalid output retries once
+        while attempts < 2:  # invalid output gets exactly one retry
             attempts += 1
             kwargs = {"response_format": response_format} if use_response_format else {}
             try:

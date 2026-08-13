@@ -1,4 +1,10 @@
-"""Pydantic schemas for LLM structured-output pipelines (SPEC section 6)."""
+"""Pydantic schemas for the LLM structured-output pipelines.
+
+Every pipeline validates against one of these: the provider is asked for
+this shape and the result is parsed into it before anything is stored, so a
+model that free-associates fails loudly instead of writing junk to the
+database. Adding a pipeline starts here — see CLAUDE.md.
+"""
 
 from typing import Literal
 

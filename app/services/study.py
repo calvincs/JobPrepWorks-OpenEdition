@@ -41,7 +41,7 @@ def _feedback_block(conn, user_id: int, job_id: int | None = None) -> str:
 
 
 def generate_guide(job_id: int) -> None:
-    """Background pipeline for FR-7: versioned per-job study guide, prioritized by
+    """Background pipeline: versioned per-job study guide, prioritized by
     fit gaps and interview performance."""
     from app.services.interviews import skill_performance
 
@@ -260,7 +260,7 @@ def topic_drill_stats(job_id: int | None, user_id: int) -> dict:
 
 
 def generate_global_guide(user_id: int) -> None:
-    """FR-7: global guide synthesizing the highest-impact focus areas across all
+    """Global guide synthesizing the highest-impact focus areas across all
     of one user's open applications. Stored with job_id NULL; status tracked in
     app_state under per-user keys."""
     from app.services.interviews import skill_performance

@@ -38,7 +38,7 @@ def create_job(
 
 
 def run_intake(job_id: int) -> None:
-    """Background pipeline for FR-2: extract structure, then trigger fit analysis (FR-3)."""
+    """Background pipeline for a new job: extract its structure, then analyze fit."""
     conn = get_conn()
     try:
         row = conn.execute("SELECT raw_posting, user_id FROM jobs WHERE id = ?", (job_id,)).fetchone()
@@ -132,7 +132,7 @@ def run_intake(job_id: int) -> None:
 
     from app.services import insights
 
-    insights.request_refresh(user_id)  # FR-8: cross-job picture changed
+    insights.request_refresh(user_id)  # the cross-job picture changed
 
 
 def update_tracking(

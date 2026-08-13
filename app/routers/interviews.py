@@ -73,9 +73,10 @@ def start_session(
     count: int = Form(10),
     skip_opener: str | None = Form(None),
 ):
-    """FR-5: two scopes — job (one job) and mixer (several). The form posts jobs by
-    their public id; resolve to internal ids (scoped to the user), then build the
-    session's questions in the background while the page polls until ready."""
+    """Start a session in one of two scopes — job (one job) or mixer (several).
+    The form posts jobs by their public id; resolve to internal ids (scoped to
+    the user), then build the session's questions in the background while the
+    page polls until ready."""
     uid = current_user_id(request)
     usage.spend(uid, "questions")  # before the session row exists
     count = min(max(count, 3), 10)

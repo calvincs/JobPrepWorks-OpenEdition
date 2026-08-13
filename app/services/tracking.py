@@ -1,4 +1,4 @@
-"""FR-9/FR-10: application event log and follow-up reminders."""
+"""Application event log and follow-up reminders."""
 
 import json
 from datetime import date, timedelta
@@ -63,7 +63,7 @@ def create_follow_up(job_id: int, due_at: str, reason: str) -> None:
 
 
 def ensure_applied_follow_up(job_id: int) -> None:
-    """FR-10: applying auto-suggests a follow-up if the job has no open one."""
+    """Applying auto-suggests a follow-up if the job has no open one."""
     conn = get_conn()
     try:
         open_count = conn.execute(

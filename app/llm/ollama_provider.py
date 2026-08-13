@@ -85,7 +85,7 @@ class OllamaProvider:
         json_schema = schema.model_json_schema()
         system_json = f"{system}\n\nRespond with a single JSON object in the required structure."
         last_exc: Exception | None = None
-        for _attempt in range(2):  # SPEC section 9: invalid output retries once
+        for _attempt in range(2):  # invalid output gets exactly one retry
             content = self._chat(
                 system=system_json, prompt=prompt, max_tokens=max_tokens, format_schema=json_schema
             )

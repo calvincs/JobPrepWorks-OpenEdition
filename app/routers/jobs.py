@@ -70,7 +70,7 @@ def create_job(
     url: str = Form(""),
     posting_file: UploadFile | None = None,
 ):
-    """FR-2: free-form paste or file upload; URL is optional metadata only.
+    """Add a job: free-form paste or file upload; URL is optional metadata only.
     Deliberately sync (`def`): the multipart body is already spooled before the
     handler runs, and the PDF/DOCX parse + DB writes below are blocking — as
     `async def` they'd stall the event loop for every user."""
@@ -216,7 +216,7 @@ def delete_job(request: Request, background: BackgroundTasks, job_id: int = Depe
     # Mixer/global sessions that drew only from this job are now empty (their
     # questions cascaded); clear those orphans so they don't linger as 0/0.
     interviews_service.prune_empty_sessions(current_user_id(request))
-    # FR-8: removing a job changes the cross-job picture.
+    # Removing a job changes the cross-job picture.
     background.add_task(insights_service.request_refresh, current_user_id(request))
     if "hx-request" not in request.headers:
         return RedirectResponse("/app/jobs", status_code=303)

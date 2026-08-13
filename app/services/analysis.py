@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 
 def band_for_score(score: int) -> str:
-    """SPEC FR-3 bands; thresholds mirror the score calibration in the fit prompt."""
+    """Fit bands; thresholds mirror the score calibration in the fit prompt."""
     if score >= 80:
         return "Strong"
     if score >= 60:
@@ -57,7 +57,7 @@ def reanalyze_all_jobs(user_id: int) -> None:
 
 
 def run_fit_analysis(job_id: int) -> None:
-    """Compare job requirements against the profile; store a new versioned analysis (FR-3)."""
+    """Compare job requirements against the profile; store a new versioned analysis."""
     conn = get_conn()
     try:
         job = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()

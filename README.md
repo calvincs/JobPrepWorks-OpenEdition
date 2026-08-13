@@ -216,9 +216,9 @@ The suite runs against a throwaway SQLite file with the mock provider, so it's
 fast and completely offline.
 
 The stack is deliberately small: FastAPI + Jinja2 + HTMX, one hand-written
-stylesheet, three hand-written JS files, no bundler, no framework. See
+stylesheet, a handful of hand-written JS files, no bundler, no framework. See
 [`CLAUDE.md`](CLAUDE.md) for the architecture and the conventions to follow when
-changing it, and [`SPEC.md`](SPEC.md) for what the product is supposed to do.
+changing it.
 
 ```
 app/

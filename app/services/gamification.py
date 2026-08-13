@@ -1,8 +1,8 @@
-"""FR-11 gamification core: mastery trends, streaks, session stats, awards.
+"""Gamification core: mastery trends, streaks, session stats, awards.
 
 Everything except badges is derived from session/answer/fit data at read time.
 The game layer rewards effort and improvement - scores themselves stay
-calibrated (FR-6)."""
+calibrated."""
 
 import json
 from datetime import date, timedelta

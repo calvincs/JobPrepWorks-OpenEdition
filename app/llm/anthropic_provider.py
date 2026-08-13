@@ -59,7 +59,7 @@ class AnthropicProvider:
 
     def extract(self, *, system: str, prompt: str, schema: type[T], max_tokens: int = 16000) -> T:
         last_exc: Exception | None = None
-        for _attempt in range(2):  # SPEC section 9: invalid output retries once
+        for _attempt in range(2):  # invalid output gets exactly one retry
             try:
                 response = self.client.messages.parse(
                     model=self.model,

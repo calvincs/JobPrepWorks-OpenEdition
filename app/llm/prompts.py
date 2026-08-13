@@ -1,6 +1,6 @@
 """System prompts and prompt builders for the M1 pipelines.
 
-Honesty is a product requirement (SPEC sections 1 and 9): the fit-analysis
+Honesty is a product requirement, not a tone preference: the fit-analysis
 prompt explicitly forbids benefit-of-the-doubt scoring.
 """
 

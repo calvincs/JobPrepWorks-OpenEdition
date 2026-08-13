@@ -13,8 +13,7 @@ There are **no accounts, no authentication, no billing, and no plans**. Every
 feature is always available; the user pays their provider directly. If you find
 yourself adding a gate, a tier, or a sign-in, stop — that's a different product.
 
-`README.md` is the pitch and setup guide, `llm.txt` is the same for an agent,
-`SPEC.md` is the product spec (data model, functional requirements).
+`README.md` is the pitch and setup guide; `llm.txt` is the same for an agent.
 
 ## Commands
 

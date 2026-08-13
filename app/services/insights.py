@@ -1,4 +1,4 @@
-"""FR-8 cross-job insights: compute the skill matrix in SQL, let the LLM turn
+"""Cross-job insights: compute the skill matrix in SQL, let the LLM turn
 it into a handful of sharp, numbers-grounded findings.
 
 Freshness model: the current insights are the non-dismissed rows of the user's
