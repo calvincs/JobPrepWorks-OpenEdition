@@ -23,7 +23,7 @@ There is no Docker requirement, no Postgres, no Node, no npm.
 ## Install
 
 ```sh
-git clone <repo-url> JobPrepWorks-OpenEdition
+git clone https://github.com/calvincs/JobPrepWorks-OpenEdition.git
 cd JobPrepWorks-OpenEdition
 scripts/setup          # creates .venv, installs requirements.txt, copies .env
 ```

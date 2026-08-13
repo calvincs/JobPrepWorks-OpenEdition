@@ -16,7 +16,7 @@ licensed.
 ## Quick start
 
 ```sh
-git clone <repo-url> JobPrepWorks-OpenEdition
+git clone https://github.com/calvincs/JobPrepWorks-OpenEdition.git
 cd JobPrepWorks-OpenEdition
 scripts/setup                 # venv + dependencies + .env
 $EDITOR .env                  # uncomment one provider block in section 1
@@ -183,7 +183,7 @@ including verification and a troubleshooting table — are in
 **[`llm.txt`](llm.txt)**. Read that file. The short version:
 
 ```sh
-git clone <repo-url> JobPrepWorks-OpenEdition && cd JobPrepWorks-OpenEdition
+git clone https://github.com/calvincs/JobPrepWorks-OpenEdition.git && cd JobPrepWorks-OpenEdition
 scripts/setup                                  # venv + deps + .env
 # edit .env: uncomment ONE provider block in section 1
 scripts/run                                    # → http://127.0.0.1:8000
@@ -251,5 +251,7 @@ app/
 
 MIT — see [LICENSE](LICENSE). Do what you want with it.
 
-Icons are [Lucide](https://lucide.dev) (ISC). Fonts are Geist and Anton, both
-under the SIL Open Font License (see `app/static/fonts/`).
+Vendored third-party assets, all permissively licensed and unmodified:
+[htmx](https://htmx.org) (0BSD), [Lucide](https://lucide.dev) icons (ISC), and
+the Geist and Anton typefaces (SIL Open Font License — see
+`app/static/fonts/`).
