@@ -61,7 +61,9 @@
         <th scope="row">Web search</th>
         <td>
           <code>{{ search_backend }}</code>
-          {% if search_backend == 'none' %}
+          {% if search_backend == 'mock' %}
+          <span class="muted small">— canned research, no network</span>
+          {% elif search_backend == 'none' %}
           <span class="muted small">— Company Pulse is off. Set <code>TAVILY_API_KEY</code>,
             <code>BRAVE_API_KEY</code>, or <code>SEARXNG_URL</code> to enable it.</span>
           {% elif search_backend == 'native' %}

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.config import (
+    MOCK,
     resolved_model,
     research_provider_name,
     search_backend_name,
@@ -22,15 +23,23 @@ def _hx_trigger(**events) -> dict:
 
 
 def _provider_ctx() -> dict:
-    """What the Account page reports about the configured model backend. Read
+    """What the Settings page reports about the configured model backend. Read
     straight from settings so the page always describes the process you're
-    actually running — not what the .env on disk says after an edit."""
+    actually running — not what the .env on disk says after an edit.
+
+    The mock provider is reported as such rather than by its (irrelevant)
+    search backend: mock serves a canned pulse without touching the network, so
+    printing "no web search" next to a working Pulse tab would be a lie."""
+    mock = settings.llm_provider == MOCK
     return {
         "provider": settings.llm_provider,
-        "model": resolved_model() or "(not set)",
+        "model": "(canned responses)" if mock else (resolved_model() or "(not set)"),
         "research_provider": research_provider_name(),
-        "research_model": settings.research_model or resolved_model() or "(not set)",
-        "search_backend": search_backend_name(),
+        "research_model": (
+            "(canned responses)" if mock
+            else (settings.research_model or resolved_model() or "(not set)")
+        ),
+        "search_backend": "mock" if mock else search_backend_name(),
     }
 
 
