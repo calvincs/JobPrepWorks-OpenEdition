@@ -28,7 +28,7 @@ class FileTooLarge(Exception):
 
 
 def save_upload(filename: str, content: bytes, purpose: str = "profile", *, user_id: int) -> int:
-    """Store the raw file (storage seam: local disk or DO Spaces) and create a
+    """Store the raw file (storage seam, app/services/storage.py) and create a
     document row (status 'uploaded'). documents.path holds the storage KEY."""
     if len(content) > MAX_UPLOAD_BYTES:
         raise FileTooLarge(

@@ -109,8 +109,8 @@ separate migrate step.
 ## Verify (do not skip)
 
 ```sh
-curl -s http://127.0.0.1:8000/health          # → {"status":"ok"}
-curl -sI http://127.0.0.1:8000/app | head -1  # → HTTP/1.1 200 OK
+curl -s http://127.0.0.1:8000/health                              # → {"status":"ok"}
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/app  # → 200
 ```
 
 Then check the startup log. Lines beginning `Config:` name anything missing —

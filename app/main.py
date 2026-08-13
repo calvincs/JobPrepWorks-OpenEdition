@@ -214,7 +214,9 @@ async def quota_exceeded(request: Request, exc: QuotaExceeded):
     )
 
 
-@app.get("/", include_in_schema=False)
+# HEAD as well as GET: `curl -I http://127.0.0.1:8000/` is the obvious way to
+# check the server is up, and a 405 there reads like a broken install.
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 def root() -> RedirectResponse:
     """There is no landing page — the app is the product."""
     return RedirectResponse("/app", status_code=307)
