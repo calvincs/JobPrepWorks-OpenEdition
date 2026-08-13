@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+{% set tp = theme_pref(request) %}
+<html lang="en"{% if tp in ('light', 'dark') %} data-theme="{{ tp }}"{% endif %} data-theme-server="{{ tp }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <script src="{{ static_url('theme-boot.js') }}"></script>
+  <title>{% block title %}JobPrep Works{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Local-first interview prep: track applications, analyze fit, and train with honest AI mock interviews.{% endblock %}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ self.title() }}">
+  <meta property="og:description" content="{{ self.meta_description() }}">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f7f9">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1216">
+  <link rel="icon" href="{{ static_url('favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ static_url('favicon-96.png') }}" type="image/png" sizes="96x96">
+  <link rel="apple-touch-icon" href="{{ static_url('apple-touch-icon.png') }}">
+  <link rel="stylesheet" href="{{ static_url('style.css') }}">
+  <script src="{{ static_url('htmx.min.js') }}" defer></script>
+  <script src="{{ static_url('theme.js') }}" defer></script>
+  <script src="{{ static_url('app.js') }}" defer></script>
+  <script src="{{ static_url('dictation.js') }}" defer></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <nav class="sidebar" aria-label="Main">
+    <div class="brand"><span class="brand-accent">J</span>ob <span class="brand-accent">P</span>rep <span class="brand-accent">W</span>orks</div>
+    <div class="sidebar-links">
+      <button type="button" class="search-trigger" aria-haspopup="dialog">
+        {{ icon('search') }} <span>Search</span>
+      </button>
+      <a href="/app" class="{{ 'active' if active_nav == 'dashboard' else '' }}" {% if active_nav == 'dashboard' %}aria-current="page"{% endif %}>{{ icon('layout-dashboard') }} <span>Dashboard</span></a>
+      <a href="/app/profile" class="{{ 'active' if active_nav == 'profile' else '' }}" {% if active_nav == 'profile' %}aria-current="page"{% endif %}>{{ icon('user-round') }} <span>Profile</span></a>
+      <a href="/app/jobs" class="{{ 'active' if active_nav == 'jobs' else '' }}" {% if active_nav == 'jobs' %}aria-current="page"{% endif %}>{{ icon('briefcase') }} <span>Jobs</span></a>
+      <a href="/app/interviews" class="{{ 'active' if active_nav == 'interviews' else '' }}" {% if active_nav == 'interviews' %}aria-current="page"{% endif %}>{{ icon('mic') }} <span>Interviews</span></a>
+      <a href="/app/insights" class="{{ 'active' if active_nav == 'insights' else '' }}" {% if active_nav == 'insights' %}aria-current="page"{% endif %}>{{ icon('lightbulb') }} <span>Insights</span></a>
+      <a href="/app/study" class="{{ 'active' if active_nav == 'study' else '' }}" {% if active_nav == 'study' %}aria-current="page"{% endif %}>{{ icon('book-open') }} <span>Study</span></a>
+      <a href="/app/account" class="{{ 'active' if active_nav == 'account' else '' }}" {% if active_nav == 'account' %}aria-current="page"{% endif %}>{{ icon('settings') }} <span>Settings</span></a>
+    </div>
+    <button class="theme-toggle" type="button" aria-label="Switch color theme">
+      {{ icon('sun', 16, 'icon-sun') }}{{ icon('moon', 16, 'icon-moon') }} <span>Theme</span>
+    </button>
+    <p class="sidebar-legal">Open Edition · runs on your machine</p>
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <dialog id="search-dialog" class="search-modal" aria-label="Search everything">
+    <div class="search-modal-head">
+      {{ icon('search', 18, 'search-icon') }}
+      <input type="search" name="q" placeholder="Search jobs, facts, questions, answers…"
+             autocomplete="off" aria-label="Search everything"
+             hx-get="/app/search/results" hx-trigger="input changed delay:200ms"
+             hx-target="#search-results" hx-swap="innerHTML" hx-include="this">
+      <button type="button" class="btn-icon sm" data-close-dialog aria-label="Close search">{{ icon('x', 15) }}</button>
+    </div>
+    <div id="search-results" class="search-results">
+      {% include "partials/search_results.html" %}
+    </div>
+  </dialog>
+  <dialog id="confirm-dialog">
+    <p id="confirm-message"></p>
+    <div class="dialog-actions">
+      <button type="button" id="confirm-cancel">Cancel</button>
+      <button type="button" id="confirm-ok" class="primary">Confirm</button>
+    </div>
+  </dialog>
+  <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+</body>
+</html>

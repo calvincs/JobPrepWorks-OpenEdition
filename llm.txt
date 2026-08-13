@@ -1,0 +1,161 @@
+# llm.txt — instructions for a coding agent setting up JobPrep Works (Open Edition)
+
+You are installing a self-contained, single-user web app on the user's machine.
+Follow this file top to bottom. Do not skip the verification step.
+
+## What this is
+
+A local interview-prep tool: upload career documents, paste job postings, get an
+honest fit analysis, drill with AI mock interviews. FastAPI + Jinja2 + HTMX +
+SQLite. No accounts, no sign-in, no telemetry, no build step, no database server.
+MIT licensed.
+
+## Requirements
+
+- Python 3.11 or newer (check: `python3 --version`)
+- SQLite 3.35+ — bundled with Python; verify with
+  `python3 -c "import sqlite3; print(sqlite3.sqlite_version)"`
+- One of: an Anthropic / OpenAI / OpenRouter API key, OR a running Ollama
+  instance, OR nothing at all (`LLM_PROVIDER=mock` returns canned data)
+
+There is no Docker requirement, no Postgres, no Node, no npm.
+
+## Install
+
+```sh
+git clone <repo-url> JobPrepWorks-OpenEdition
+cd JobPrepWorks-OpenEdition
+scripts/setup          # creates .venv, installs requirements.txt, copies .env
+```
+
+`scripts/setup` is idempotent and never overwrites an existing `.env`.
+
+Equivalent manual steps if you prefer not to run the script:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env
+```
+
+## Configure
+
+Edit `.env`. **Section 1 is the only part you must touch** — uncomment exactly
+one provider block. Ask the user which provider they want if you don't know;
+do not guess an API key, and never invent one.
+
+```sh
+# Anthropic — a key alone is enough (this is the only provider with a model default)
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+# OpenAI
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+LLM_MODEL=gpt-5
+
+# OpenRouter
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-...
+LLM_MODEL=anthropic/claude-sonnet-4.5
+
+# Ollama — fully local, no key, nothing leaves the machine
+LLM_PROVIDER=ollama
+LLM_MODEL=qwen3:14b
+LLM_BASE_URL=http://localhost:11434
+LLM_NUM_CTX=16384
+
+# No model at all — canned responses, for a UI-only demo
+LLM_PROVIDER=mock
+```
+
+`LLM_MODEL` is **required** for every provider except `anthropic` and `mock`.
+The app logs a specific warning at startup naming whatever is missing; read
+that output rather than guessing.
+
+### Company Pulse (employer research) — optional
+
+Anthropic, OpenAI, and OpenRouter search the web server-side, so this works with
+no extra configuration. **Ollama and other local servers cannot search**, so the
+app runs the searches itself — that needs one of:
+
+```sh
+TAVILY_API_KEY=tvly-...        # easiest, free tier, built for LLM use
+BRAVE_API_KEY=BSA...           # independent index, free tier
+SEARXNG_URL=http://localhost:8888   # self-hosted, shares nothing with a vendor
+```
+
+With none of these and a local model, the Pulse tab hides itself and every other
+feature works normally. That is expected — do not treat it as a failed install.
+
+### Spend guard (optional)
+
+`LLM_DAILY_LIMIT=0` (the default) means no limit. It gates nothing — every
+feature is always available — it only stops a runaway loop from draining a paid
+key. Suggest a value only if the user asks about cost control.
+
+## Run
+
+```sh
+scripts/run                    # http://127.0.0.1:8000
+scripts/run --reload           # auto-restart while editing
+```
+
+Or directly: `.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000`
+
+The database schema is created automatically on first start. There is no
+separate migrate step.
+
+## Verify (do not skip)
+
+```sh
+curl -s http://127.0.0.1:8000/health          # → {"status":"ok"}
+curl -sI http://127.0.0.1:8000/app | head -1  # → HTTP/1.1 200 OK
+```
+
+Then check the startup log. Lines beginning `Config:` name anything missing —
+a `Config:` warning about `LLM_MODEL` or an API key means the app will render
+fine but every AI action will fail. Resolve those before telling the user it's
+ready.
+
+To confirm the whole stack without spending tokens, run the test suite. It uses
+a throwaway database and canned responses — no network, no key:
+
+```sh
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q
+```
+
+## Reporting back to the user
+
+Tell them:
+1. The URL: http://127.0.0.1:8000
+2. Which provider and model you configured
+3. Whether Company Pulse is active, and if not, exactly what to add to `.env`
+4. Where their data lives: `data/jobprep.db` plus `data/uploads/` — back it up
+   by copying that directory, reset by deleting it
+5. First step in the app: Profile → upload a résumé, then Jobs → paste a posting
+
+## Rules
+
+- **Never** commit or print the contents of `.env`. It holds API keys.
+- **Never** fabricate an API key or a model id. If you don't know which model
+  the user wants, ask.
+- Do not bind the server to `0.0.0.0` or expose it to a network. There is no
+  authentication — anyone who reaches the port has full access to the user's
+  documents and can spend their API credits.
+- Do not add a reverse proxy, systemd unit, or Docker setup unless asked.
+- `data/` and `.env` are gitignored. Keep it that way.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `Config: LLM_MODEL is unset` at startup | Set `LLM_MODEL` in `.env` (required for every provider but anthropic/mock) |
+| Every AI action errors immediately | Missing or wrong API key — check the `Config:` warnings in the startup log |
+| Pulse tab missing | No web search available. Expected with a local model unless you set `TAVILY_API_KEY`, `BRAVE_API_KEY`, or `SEARXNG_URL` |
+| Uploads or analyses time out | Slow local model. Raise `LLM_TIMEOUT_S`, and raise `REAPER_STALE_MINUTES` above your longest run |
+| Extraction returns junk from Ollama | Model too small, or context truncated. Use a stronger model and raise `LLM_NUM_CTX` |
+| `database is locked` | Raise `DB_BUSY_TIMEOUT`. Do not run two copies against one `data/` directory |
+| A job stuck "in progress" after a restart | The reaper clears it within `REAPER_INTERVAL` seconds, then it's retryable |
+| `SQLite 3.35 or newer is required` | The Python build is too old; install a current Python |

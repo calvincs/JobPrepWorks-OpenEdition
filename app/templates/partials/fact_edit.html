@@ -1,0 +1,42 @@
+{% set kind_labels = {'role': 'Work history', 'skill': 'Skill', 'cert': 'Certification',
+                      'education': 'Education', 'project': 'Project',
+                      'direction': 'Career direction'} %}
+<form hx-post="/app/profile/facts/{{ fact.public_id }}"
+      hx-target="#fact-{{ fact.public_id }}" hx-swap="outerHTML"
+      class="stacked-form" data-autoshow-dialog="edit-fact-dialog">
+  <h2>Edit fact</h2>
+  <p class="muted small dialog-lede">Update any career detail. Fill only what's relevant.</p>
+  <label><span>Type<span class="req" aria-hidden="true">*</span></span>
+    <select name="kind" required>
+      {% for k, lbl in kind_labels.items() %}
+      <option value="{{ k }}" {% if fact.kind == k %}selected{% endif %}>{{ lbl }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label><span>Name<span class="req" aria-hidden="true">*</span></span>
+    <input type="text" name="name" value="{{ fact.name }}" required></label>
+  <label>Organization
+    <input type="text" name="organization" value="{{ fact.organization or '' }}" placeholder="employer / issuer / school">
+  </label>
+  <label>Detail
+    <input type="text" name="detail" value="{{ fact.detail or '' }}" data-dictate placeholder="scope, context, what you did">
+  </label>
+  <label data-fact-field="proficiency" {% if fact.kind != 'skill' %}hidden{% endif %}>Proficiency
+    <select name="proficiency">
+      <option value="">—</option>
+      {% for p in ('beginner', 'intermediate', 'advanced', 'expert') %}
+      <option value="{{ p }}" {% if fact.proficiency == p %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="form-row" data-fact-field="dates" {% if fact.kind in ('skill', 'direction') %}hidden{% endif %}>
+    <label>Start
+      <input type="text" name="start_date" value="{{ fact.start_date or '' }}" placeholder="e.g. 2021 or Jan 2021"></label>
+    <label>End
+      <input type="text" name="end_date" value="{{ fact.end_date or '' }}" placeholder="e.g. 2024 or present"></label>
+  </div>
+  <div class="dialog-actions">
+    <button type="button" data-close-dialog>Cancel</button>
+    <button type="submit" class="primary">Save changes</button>
+  </div>
+</form>

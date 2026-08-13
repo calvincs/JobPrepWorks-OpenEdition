@@ -1,0 +1,19 @@
+{# Progress badge for a study-guide topic card: a trend of past drill scores
+   (mini bars, oldest→newest, coloured by band), the cumulative-average
+   confidence score, and the drill count. `stats` is one entry from
+   study_service.topic_drill_stats() (or None when the topic is unpractised).
+   The trend shows the most recent 12 drills; count/avg reflect all of them. #}
+{% macro drill_stats(stats) %}
+{% if stats and stats.count %}
+<div class="topic-stats"
+     title="{{ stats.count }} drill{{ 's' if stats.count != 1 else '' }} · confidence {{ stats.avg }}/5 (cumulative; follow-up counts)">
+  {% if stats.scores | length > 1 %}
+  <span class="topic-trend" aria-hidden="true">
+    {%- for sc in stats.scores[-12:] %}<span class="trend-bar s{{ sc }}" style="--h: {{ (sc / 5 * 100) | round | int }}%"></span>{% endfor -%}
+  </span>
+  {% endif %}
+  <span class="score-chip s{{ stats.avg | round | int }}">{{ stats.avg }}/5</span>
+  <span class="muted small tabular">{{ stats.count }} drill{{ 's' if stats.count != 1 else '' }}</span>
+</div>
+{% endif %}
+{% endmacro %}

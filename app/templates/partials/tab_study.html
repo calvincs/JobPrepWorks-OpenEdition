@@ -1,0 +1,47 @@
+{% if job.study_status == 'running' %}
+<div class="card working" role="status" aria-busy="true" hx-get="/app/jobs/{{ job.public_id }}/tab/study" hx-target="#tab-content" hx-trigger="every 2s">
+  <p><span class="spinner" aria-hidden="true"></span> Building your study guide…</p>
+</div>
+{% elif job.study_status == 'error' %}
+<div class="card">
+  <p class="error-text">Study guide generation failed: {{ job.study_error }}</p>
+  <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/study/generate" hx-target="#tab-content">Retry</button>
+</div>
+{% elif not guide %}
+<div class="card">
+  <p class="muted">No study guide yet. It regenerates automatically after each completed interview session, or generate one now.</p>
+  {% if job.extract_status == 'ready' %}
+  <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/study/generate" hx-target="#tab-content">Generate study guide</button>
+  {% endif %}
+</div>
+{% else %}
+{% set content = guide.content_json | from_json %}
+<section class="card">
+  <div class="section-head">
+    <h2>Study guide <span class="muted">v{{ guide.version }} · {{ guide.created_at }}</span></h2>
+    <button hx-post="/app/jobs/{{ job.public_id }}/study/generate" hx-target="#tab-content"
+            hx-confirm="Regenerate the guide from your current fit analysis and interview performance?">Regenerate</button>
+  </div>
+  <div class="md">{{ content.intro | md }}</div>
+</section>
+{% import "partials/study_macros.html" as sm %}
+{% for t in content.topics %}
+<section class="card">
+  <div class="pill-row">
+    <span class="badge imp-{{ {'high': 'critical', 'medium': 'important', 'low': 'minor'}[t.priority] }}">{{ t.priority }} priority</span>
+    {{ sm.drill_stats((topic_stats | default({})).get(t.topic)) }}
+  </div>
+  <h2>{{ t.topic }}</h2>
+  <div class="muted md">{{ t.why_it_matters | md }}</div>
+  <h3 class="fact-kind">What to study</h3>
+  <ul>{% for item in t.what_to_study %}<li class="md">{{ item | md }}</li>{% endfor %}</ul>
+  <h3 class="fact-kind">How it will be tested</h3>
+  <div class="md">{{ t.how_it_will_be_tested | md }}</div>
+  <form method="post" action="/app/jobs/{{ job.public_id }}/study/drill" class="drill-launch">
+    <input type="hidden" name="topic_index" value="{{ loop.index0 }}">
+    <button type="submit" class="primary sm">{{ icon('mic', 14) }} Practice this</button>
+    <span class="muted small">One impromptu question on this topic, graded instantly.</span>
+  </form>
+</section>
+{% endfor %}
+{% endif %}

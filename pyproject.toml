@@ -1,0 +1,18 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --cov=app --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = [
+    # Real LLM integrations need network/a live model — not unit-testable.
+    # The mock provider (used by the suite) and base.py are covered.
+    "app/llm/anthropic_provider.py",
+    "app/llm/ollama_provider.py",
+    "app/llm/openai_compat_provider.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

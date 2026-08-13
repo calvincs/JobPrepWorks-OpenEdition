@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Start the app on http://127.0.0.1:8000 (loopback only — there is no login).
+# Pass --reload for auto-restart while editing, or set HOST/PORT to override.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if [ ! -x .venv/bin/uvicorn ]; then
+  echo "error: .venv not found. Run scripts/setup first." >&2
+  exit 1
+fi
+
+HOST="${HOST:-127.0.0.1}"
+PORT="${PORT:-8000}"
+
+echo "JobPrep Works → http://${HOST}:${PORT}"
+exec .venv/bin/uvicorn app.main:app --host "$HOST" --port "$PORT" "$@"

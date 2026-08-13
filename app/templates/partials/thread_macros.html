@@ -1,0 +1,38 @@
+{# Graded-conversation turns, shared by the live drill/interview feedback
+   (answer_feedback.html) and the finished-session transcript
+   (interview_session.html). One grammar: a Question is the loud prompt, You is
+   your own words on a steel rail, Coach is the score + critique on an amber
+   rail. The interviewer follow-up is a divider between turns, never a nested
+   box. `icon`, `md`, and `answer_band` are environment-level, so they resolve
+   inside these macros without `with context`. #}
+
+{% macro q_turn(text, eyebrow='') %}
+<div class="turn turn-q">
+  {% if eyebrow %}<p class="turn-eyebrow">{{ eyebrow }}</p>{% endif %}
+  <p class="turn-prompt">{{ text }}</p>
+</div>
+{% endmacro %}
+
+{% macro you_turn(text, label='You answered') %}
+<div class="turn turn-you">
+  <p class="turn-label">{{ label }}</p>
+  <p class="turn-body">{{ text }}</p>
+</div>
+{% endmacro %}
+
+{% macro coach_turn(score, feedback, delta='') %}
+<div class="turn turn-coach">
+  <p class="turn-label">Coach
+    <span class="score-chip s{{ score }}">{{ score }}/5 <b class="band">{{ score | answer_band }}</b></span>
+    {% if delta %}<span class="delta">{{ delta }}</span>{% endif %}
+  </p>
+  <div class="feedback-body md">{{ feedback | md }}</div>
+</div>
+{% endmacro %}
+
+{% macro followup_divider() %}
+<div class="thread-div"><span>{{ icon('corner-down-right', 13) }} Interviewer followed up</span></div>
+{% endmacro %}
+
+{# "no change" / "improved +N" / "slipped −N" for a follow-up score vs the first. #}
+{% macro delta_of(first, follow) %}{% set d = follow - first %}{{ 'no change' if d == 0 else ('improved +' ~ d if d > 0 else 'slipped −' ~ (0 - d)) }}{% endmacro %}

@@ -1,0 +1,73 @@
+{% set kind_labels = {'role': 'Work history', 'skill': 'Skills', 'cert': 'Certifications',
+                      'education': 'Education', 'project': 'Projects',
+                      'direction': 'Career direction'} %}
+<section class="card" id="facts-section"
+         hx-get="/app/profile/facts-section" hx-trigger="refresh-facts from:body"
+         hx-target="#facts-section" hx-swap="outerHTML">
+  {% set ns = namespace(unsourced=0) %}
+  {% for group in fact_groups.values() %}{% for f in group %}{% if f.orphaned %}{% set ns.unsourced = ns.unsourced + 1 %}{% endif %}{% endfor %}{% endfor %}
+  <div class="section-head">
+    <h2>Facts</h2>
+    <div class="section-head-actions">
+      {% if fact_groups %}
+      <span class="muted small tabular" data-facts-count></span>
+      {% endif %}
+      <button type="button" class="primary sm" data-open-dialog="add-fact-dialog">
+        {{ icon('plus', 14) }} Add fact
+      </button>
+    </div>
+  </div>
+  {% if fact_parses %}
+  {% for p in fact_parses %}
+  {% include "partials/fact_parse_banner.html" %}
+  {% endfor %}
+  {% endif %}
+  {% if ns.unsourced %}
+  <div class="unsourced-banner">
+    <span>{{ icon('flame', 15) }} {{ ns.unsourced }} unsourced fact{{ 's' if ns.unsourced != 1 else '' }} — their source documents were removed.</span>
+    <span class="unsourced-actions">
+      <button type="button" class="sm danger" hx-post="/app/profile/facts/unsourced/remove"
+              hx-target="#facts-section" hx-swap="outerHTML"
+              hx-confirm="Remove {{ ns.unsourced }} unsourced fact{{ 's' if ns.unsourced != 1 else '' }}? User-edited facts are kept.">Remove them</button>
+      <button type="button" class="sm" data-dismiss=".unsourced-banner">Keep</button>
+    </span>
+  </div>
+  {% endif %}
+  {% if fact_groups %}
+  <div class="facts-filter">
+    <div class="pill-row" role="group" aria-label="Filter by kind">
+      <button type="button" class="pill active-pill" data-facts-kind="all" aria-pressed="true">
+        all <span class="muted">{{ fact_groups.values() | map('length') | sum }}</span>
+      </button>
+      {% for kind in ('role', 'skill', 'cert', 'education', 'project', 'direction') %}
+      {% if fact_groups.get(kind) %}
+      <button type="button" class="pill" data-facts-kind="{{ kind }}" aria-pressed="false">
+        {{ kind_labels[kind] | lower }} <span class="muted">{{ fact_groups[kind] | length }}</span>
+      </button>
+      {% endif %}
+      {% endfor %}
+    </div>
+    <div class="search-expand">
+      <button type="button" class="btn-icon search-expand-btn" aria-label="Filter facts by text" aria-expanded="false">
+        {{ icon('search', 15) }}
+      </button>
+      <input type="search" id="facts-search" placeholder="Filter facts…" aria-label="Filter facts" tabindex="-1">
+    </div>
+  </div>
+  {% for kind in ('role', 'skill', 'cert', 'education', 'project', 'direction') %}
+  {% if fact_groups.get(kind) %}
+  <div data-fact-group="{{ kind }}">
+    <h3 class="fact-kind">{{ kind_labels[kind] }}</h3>
+    <ul class="fact-list">
+      {% for fact in fact_groups[kind] %}
+      {% include "partials/fact_row.html" %}
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% endfor %}
+  <p class="empty" data-facts-empty hidden>No facts match — clear the filter or try another term.</p>
+  {% else %}
+  <p class="muted">No facts yet. Upload a document above, or use <strong>Add fact</strong> to enter your details by hand.</p>
+  {% endif %}
+</section>

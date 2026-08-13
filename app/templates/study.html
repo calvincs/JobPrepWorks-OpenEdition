@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "partials/history.html" import history_table %}
+{% block title %}Study · JobPrep Works{% endblock %}
+{% block meta_description %}Your study materials in one place — the cross-job focus plan and each role's tailored guide.{% endblock %}
+{% block content %}
+<h1>Study</h1>
+<p class="muted page-lede">Your study materials in one place — the cross-job focus plan and each role's tailored guide. Hit “Practice this” on any topic to drill it with one instant-graded question.</p>
+
+<div class="tabs" role="tablist" aria-label="Study sections">
+  <a class="tab {{ 'active' if view != 'drills' else '' }}" role="tab"
+     aria-selected="{{ 'true' if view != 'drills' else 'false' }}" href="/app/study">Study guides</a>
+  <a class="tab {{ 'active' if view == 'drills' else '' }}" role="tab"
+     aria-selected="{{ 'true' if view == 'drills' else 'false' }}" href="/app/study?view=drills">Drills{% if drills %} <span class="muted">{{ drills | length }}</span>{% endif %}</a>
+</div>
+
+{% if view == 'drills' %}
+<section class="card">
+  {{ history_table(drills, 'Topic', 'topic', 'No study drills yet. Open a study guide and hit “Practice this” on any topic to drill it here.',
+                   base_url='/app/study?view=drills', sort=sort, dir=dir) }}
+</section>
+{% else %}
+<div class="pill-row study-switcher">
+  <a class="pill {{ 'active-pill' if not selected_job else '' }}" href="/app/study">{{ icon('book-open', 14) }} Global focus plan</a>
+  {% for j in switcher_jobs %}
+  {% set jlabel = (j.title or 'Untitled job') ~ (' · ' ~ j.company if j.company else '') %}
+  {% set is_sel = selected_job and selected_job.public_id == j.public_id %}
+  {% if j.has_guide %}
+  <a class="pill {{ 'active-pill' if is_sel else '' }}" href="/app/study?job={{ j.public_id }}">{{ jlabel }}</a>
+  {% else %}
+  <a class="pill pill-ghost {{ 'active-pill' if is_sel else '' }}" href="/app/study?job={{ j.public_id }}"
+     title="No study guide yet — click to generate">{{ icon('plus', 13) }} {{ jlabel }}</a>
+  {% endif %}
+  {% endfor %}
+</div>
+
+{% if selected_job %}
+<div id="tab-content">
+  {% include "partials/tab_study.html" %}
+</div>
+{% else %}
+<div id="global-guide-area">
+  {% include "partials/global_guide.html" %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

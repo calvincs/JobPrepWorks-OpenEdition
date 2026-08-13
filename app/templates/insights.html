@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Insights · JobPrep Works{% endblock %}
+{% block meta_description %}Cross-job patterns — common gaps, consistent strengths, and sector fit.{% endblock %}
+{% block content %}
+<h1>Insights</h1>
+<p class="muted">Patterns across all your target jobs — common gaps worth focusing on, consistent strengths to lead with, and sector fit.</p>
+<div id="insights-area">
+  {% include "partials/insights_list.html" %}
+</div>
+{% endblock %}

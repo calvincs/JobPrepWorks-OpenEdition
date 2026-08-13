@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ job.title or 'Job' }} · JobPrep Works{% endblock %}
+{% block meta_description %}{{ job.title or 'Job' }}{% if job.company %} at {{ job.company }}{% endif %} — fit analysis, mock interviews, and prep.{% endblock %}
+{% block content %}
+<p class="breadcrumb"><a href="/app/jobs">← Jobs</a></p>
+<h1>{{ job.title or ('Reading posting…' if job.extract_status in ('pending', 'extracting') else 'Untitled job') }}{% if job.company %} <span class="muted">at {{ job.company }}</span>{% endif %}</h1>
+<div class="pill-row">
+  <span class="badge status-{{ job.status }}">{{ job.status }}</span>
+  {% if job.url %}<a class="badge subtle" href="{{ job.url }}" target="_blank" rel="noopener">posting ↗</a>{% endif %}
+  {% if job.extract_status == 'ready' %}
+  <form method="post" action="/app/interviews" class="inline">
+    <input type="hidden" name="job_id" value="{{ job.public_id }}">
+    <input type="hidden" name="count" value="10">
+    <button type="submit" class="primary sm">{{ icon('mic', 14) }} Start interview</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="tabs" role="tablist" aria-label="Job sections">
+  {# Pulse needs web search; with none configured the tab is dropped rather than
+     shown as a dead end (services/pulse.py refuses it server-side regardless). #}
+  {% for t, label in [('overview', 'Overview'), ('fit', 'Fit analysis'), ('pitch', 'Your Pitch'),
+                      ('resume', 'Resume'), ('pulse', 'Pulse'), ('study', 'Study guide'),
+                      ('sessions', 'Sessions'), ('activity', 'Activity')]
+     if t != 'pulse' or pulse_available %}
+  <button class="tab" role="tab" id="tab-btn-{{ t }}" data-tab="{{ t }}"
+          aria-selected="{{ 'true' if tab == t else 'false' }}"
+          aria-controls="tab-content"
+          tabindex="{{ '0' if tab == t else '-1' }}"
+          hx-get="/app/jobs/{{ job.public_id }}/tab/{{ t }}" hx-target="#tab-content"
+          hx-push-url="/app/jobs/{{ job.public_id }}?tab={{ t }}">{{ label }}</button>
+  {% endfor %}
+</div>
+
+<div id="tab-content" role="tabpanel" aria-label="Job section content">
+  {% include "partials/tab_" ~ tab ~ ".html" %}
+</div>
+{% endblock %}

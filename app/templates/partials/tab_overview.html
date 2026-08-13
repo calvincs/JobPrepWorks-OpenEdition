@@ -1,0 +1,108 @@
+{% if job.extract_status in ('pending', 'extracting') %}
+<div class="card working" role="status" aria-busy="true" hx-get="/app/jobs/{{ job.public_id }}/tab/overview" hx-target="#tab-content" hx-trigger="every 2s">
+  <p><span class="spinner" aria-hidden="true"></span> Extracting job structure…</p>
+</div>
+{% elif job.extract_status == 'error' %}
+<div class="card">
+  <p class="error-text">Extraction failed: {{ job.extract_error }}</p>
+  <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/reextract" hx-target="#tab-content">Retry extraction</button>
+</div>
+{% else %}
+<section class="card">
+  <h2>Extracted details</h2>
+  <dl class="detail-grid">
+    <div><dt>Location</dt><dd>{{ job.location or '—' }}</dd></div>
+    <div><dt>Pay</dt><dd>{% if job.pay_min or job.pay_max %}{{ '{:,}'.format(job.pay_min) if job.pay_min }}{% if job.pay_min and job.pay_max %} – {% endif %}{{ '{:,}'.format(job.pay_max) if job.pay_max }}{% else %}—{% endif %}</dd></div>
+    <div><dt>Seniority</dt><dd>{{ job.seniority or '—' }}</dd></div>
+    <div><dt>Sector</dt><dd>{{ job.sector or '—' }}</dd></div>
+    <div><dt>Source</dt>
+      <dd>{% if posting_doc %}{{ icon('file-text', 13) }} {{ posting_doc.filename }}{% else %}pasted text{% endif %}</dd>
+    </div>
+    <div><dt>Added on</dt><dd title="{{ job.created_at }} UTC">{{ job.created_at | humandate }}</dd></div>
+  </dl>
+
+  <details class="posting-view">
+    <summary>{{ icon('file-text', 14) }} View the posting you provided
+      <a class="btn sm" href="/app/jobs/{{ job.public_id }}/posting/download"
+         download onclick="event.stopPropagation()">{{ icon('upload', 13) }} Download</a>
+    </summary>
+    {% if job.raw_posting %}<pre class="posting-text">{{ job.raw_posting }}</pre>
+    {% else %}<p class="muted">No posting text stored.</p>{% endif %}
+  </details>
+
+  <button hx-post="/app/jobs/{{ job.public_id }}/reextract" hx-target="#tab-content"
+          hx-confirm="Re-run extraction? Existing requirements will be replaced.">Re-extract</button>
+</section>
+
+<section class="card">
+  <h2>Requirements</h2>
+  {% if requirements %}
+  <table data-sortable>
+    <thead><tr>
+      <th data-sort="text" aria-sort="none">Skill <span class="sort-arrow" aria-hidden="true"></span></th>
+      <th data-sort="num" aria-sort="none">Type <span class="sort-arrow" aria-hidden="true"></span></th>
+      <th data-sort="text" aria-sort="none">From the posting <span class="sort-arrow" aria-hidden="true"></span></th>
+    </tr></thead>
+    <tbody>
+      {% for r in requirements %}
+      <tr>
+        <td><strong>{{ r.skill_display }}</strong></td>
+        <td data-sort-value="{{ 0 if r.kind == 'must' else 1 }}"><span class="badge {{ 'req-must' if r.kind == 'must' else 'subtle' }}">{{ r.kind }}</span></td>
+        <td class="evidence">{{ r.evidence_text or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No requirements extracted.</p>
+  {% endif %}
+</section>
+
+{% set responsibilities = job.responsibilities_json | from_json %}
+{% set benefits = job.benefits_json | from_json %}
+{% if responsibilities or benefits %}
+<section class="card two-col">
+  <div>
+    <h2>Responsibilities</h2>
+    {% if responsibilities %}<ul>{% for r in responsibilities %}<li>{{ r }}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">—</p>{% endif %}
+  </div>
+  <div>
+    <h2>Benefits</h2>
+    {% if benefits %}<ul>{% for b in benefits %}<li>{{ b }}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">—</p>{% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Tracking</h2>
+  <form method="post" action="/app/jobs/{{ job.public_id }}/tracking" class="stacked-form"
+        hx-post="/app/jobs/{{ job.public_id }}/tracking" hx-target="#tab-content">
+    <div class="field-grid">
+      <label>Status
+        <select name="status">
+          {% for s in statuses %}<option value="{{ s }}" {% if job.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Interest
+        <select name="interest_level">
+          <option value="">—</option>
+          {% for i in range(1, 6) %}<option value="{{ i }}" {% if job.interest_level == i %}selected{% endif %}>{{ '★' * i }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Applied on <input type="date" name="applied_at" value="{{ job.applied_at or '' }}"></label>
+    </div>
+    <label>Why this job? <textarea name="interest_why" rows="2"
+             placeholder="What draws you to this role?">{{ job.interest_why or '' }}</textarea></label>
+    <div class="field-grid">
+      <label>Posting URL <input type="url" name="url" value="{{ job.url or '' }}" placeholder="https://…"></label>
+      <label>Outcome notes <input type="text" name="outcome" value="{{ job.outcome or '' }}"
+               placeholder="e.g. moved to onsite" data-dictate></label>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="primary">Save tracking</button>
+    </div>
+  </form>
+</section>
+{% endif %}

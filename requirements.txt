@@ -1,0 +1,62 @@
+# Runtime dependencies, pinned. Install with:
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+#
+# The database is SQLite, which ships with Python — there is no database
+# driver here and nothing to install or run alongside the app.
+#
+# All three model SDKs are installed even though you'll use one: they're small,
+# and it means switching LLM_PROVIDER in .env never means a reinstall. Ollama
+# and other local servers need no SDK at all (plain HTTP via httpx).
+
+# Web framework + templating
+fastapi==0.139.0
+starlette==1.3.1
+uvicorn==0.51.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+python-multipart==0.0.32
+mistune==3.3.3
+
+# Config
+python-dotenv==1.2.2
+pydantic==2.13.4
+pydantic_core==2.46.4
+annotated-types==0.7.0
+typing-inspection==0.4.2
+typing_extensions==4.16.0
+annotated-doc==0.0.4
+
+# LLM providers: Anthropic, plus the OpenAI SDK (also used for OpenRouter and
+# any OpenAI-compatible server). Ollama/llama.cpp go over plain httpx.
+anthropic==0.116.0
+openai==2.45.0
+jiter==0.16.0
+distro==1.9.0
+docstring_parser==0.18.0
+tqdm==4.68.4
+
+# Document parsing: PDF, DOCX
+pypdf==6.14.2
+python-docx==1.2.0
+lxml==6.1.1
+
+# HTTP stack (web search, Ollama, the SDKs)
+httpx==0.28.1
+httpcore==1.0.9
+h11==0.16.0
+certifi==2026.6.17
+idna==3.18
+sniffio==1.3.1
+anyio==4.14.1
+charset-normalizer==3.4.9
+urllib3==2.7.0
+
+# uvicorn extras (--reload, faster loop)
+httptools==0.8.0
+uvloop==0.22.1
+watchfiles==1.2.0
+websockets==16.1
+click==8.4.2
+PyYAML==6.0.3
+python-dateutil==2.9.0.post0
+six==1.17.0

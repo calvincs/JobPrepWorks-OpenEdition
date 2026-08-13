@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Daily limit reached · JobPrep Works{% endblock %}
+{% block content %}
+<h1>Daily limit reached</h1>
+<section class="card">
+  <p>{{ message }}</p>
+  <p class="muted small">
+    This is the local spend guard you configured, not a plan — every feature stays
+    available. Change <code>LLM_DAILY_LIMIT</code> in your <code>.env</code> (0 turns it
+    off entirely) and restart the app.
+  </p>
+  <a class="btn primary" href="/app">Back to the dashboard</a>
+</section>
+{% endblock %}

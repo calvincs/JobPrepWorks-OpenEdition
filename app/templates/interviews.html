@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from "partials/history.html" import history_table %}
+{% block title %}Interviews · JobPrep Works{% endblock %}
+{% block meta_description %}Start a focused or multi-job mock interview and review your session history.{% endblock %}
+{% block content %}
+<h1>Interviews</h1>
+<p class="muted page-lede">Run a focused mock interview against a single role, or a mixed quiz across several. Questions are generated fresh at the start of every session — from the roles you pick and your profile.</p>
+
+<section class="card">
+  {% set can_mix = ready_jobs | length >= 2 %}
+  {% if ready_jobs %}
+  <div class="section-head"><h2>Start an interview</h2></div>
+
+  {% if can_mix %}
+  {# CSS-only segmented control (see .seg-tabs): radios first, label bar, then panels. #}
+  <div class="seg-tabs">
+    <input type="radio" name="istart-mode" id="istart-focused" class="seg-input" checked>
+    <input type="radio" name="istart-mode" id="istart-across" class="seg-input">
+    <div class="segmented" role="tablist" aria-label="Interview scope">
+      <label for="istart-focused" class="seg-label">{{ icon('target', 14) }} Focused</label>
+      <label for="istart-across" class="seg-label">{{ icon('briefcase', 14) }} Across jobs</label>
+    </div>
+    <div class="seg-panels">
+      <div class="seg-panel">
+  {% endif %}
+        <form method="post" action="/app/interviews" class="stacked-form">
+          <input type="hidden" name="scope" value="job">
+          <label><span>Job<span class="req" aria-hidden="true">*</span></span>
+            <select name="job_id" required>
+              {% for j in ready_jobs %}
+              <option value="{{ j.public_id }}">{{ j.title or 'Untitled job' }}{% if j.company %} — {{ j.company }}{% endif %}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Questions
+            <select name="count">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+            </select>
+          </label>
+          <label class="opener-opt-out">
+            <input type="checkbox" name="skip_opener" value="1">
+            <span>Skip the "tell me about yourself" opener</span>
+          </label>
+          <button type="submit" class="primary">{{ icon('mic', 15) }} Start interview</button>
+        </form>
+        <p class="muted small">One role, in depth — questions drawn from this posting and your background.</p>
+  {% if can_mix %}
+      </div>
+      <div class="seg-panel">
+        <form method="post" action="/app/interviews" class="stacked-form">
+          <input type="hidden" name="scope" value="mixer">
+          <fieldset class="job-picker" data-job-picker>
+            <legend>Jobs to drill</legend>
+            <div class="job-picker-head">
+              <span class="muted small" data-pick-count aria-live="polite">{{ ready_jobs | length }} selected</span>
+              <span class="job-picker-actions">
+                <button type="button" class="pick-toolbtn" data-pick-all>Select all</button>
+                <span class="pick-sep" aria-hidden="true">·</span>
+                <button type="button" class="pick-toolbtn" data-pick-none>Clear</button>
+              </span>
+            </div>
+            <div class="job-picker-list">
+              {% for j in ready_jobs %}
+              <label class="pick-row">
+                <input type="checkbox" name="job_ids" value="{{ j.public_id }}" checked>
+                <span class="pick-main">
+                  <span class="pick-title">{{ j.title or 'Untitled job' }}</span>
+                  {% if j.company %}<span class="pick-company muted">{{ j.company }}</span>{% endif %}
+                </span>
+                <span class="badge status-{{ j.status }}">{{ j.status }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+          <label>Questions
+            <select name="count">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+            </select>
+          </label>
+          <button type="submit" class="primary" data-pick-submit>{{ icon('briefcase', 15) }} Start session</button>
+        </form>
+        <p class="muted small">A quiz that mixes the jobs you pick. Leave every job checked to drill your whole pipeline at once.</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="section-head"><h2>Start an interview</h2></div>
+  <p class="empty">No jobs ready yet. <a href="/app/jobs">Add a job</a> — once its posting is analyzed you can interview against it.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="section-head"><h2>Session history</h2></div>
+  {{ history_table(sessions, 'Job', 'job', 'No interviews yet — start one above. Your history and scores land here.') }}
+  <p class="muted small">Practicing a single study-guide topic? Those live under <a href="/app/study">Study</a>.</p>
+</section>
+{% endblock %}

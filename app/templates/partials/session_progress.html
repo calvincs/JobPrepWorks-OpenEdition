@@ -1,0 +1,12 @@
+{# Header count badge + mini meter for a session page ("X/Y answered").
+   Rendered inline on the full page; the HTMX partial responses (answer
+   feedback, next-question card) re-emit it with oob=True so every
+   #question-area swap also refreshes the header — it lives outside the swap
+   target and would otherwise freeze at its page-load value. Expects
+   `answered_count` and `total` in context. #}
+<span id="session-progress"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <span class="badge subtle">{{ answered_count }}/{{ total }} answered</span>
+  {% if total %}
+  <span class="meter sm" style="--pct: {{ (answered_count / total * 100) | round | int }}%; --meter-surface: var(--bg)" aria-hidden="true"></span>
+  {% endif %}
+</span>

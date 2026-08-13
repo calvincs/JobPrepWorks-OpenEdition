@@ -1,0 +1,31 @@
+<div class="card" id="followups-panel">
+  <h2>Follow-ups</h2>
+  {% if follow_ups %}
+  <ul class="followup-list">
+    {% for f in follow_ups %}
+    <li class="followup {{ 'overdue' if f.due else '' }}">
+      <div class="followup-main">
+        <strong><a href="/app/jobs/{{ f.job_pid }}">{{ f.job_title or 'Job' }}</a></strong>
+        {% if f.job_company %}<span class="muted">· {{ f.job_company }}</span>{% endif %}
+        <span class="badge {{ 'imp-critical' if f.due else 'subtle' }}">{{ 'due' if f.due else 'upcoming' }} {{ f.due_at }}</span>
+        <div class="muted">{{ f.reason }}</div>
+      </div>
+      <div class="row-actions">
+        <form hx-post="/app/followups/{{ f.public_id }}/resolve" hx-target="#followups-panel" hx-swap="outerHTML" class="inline">
+          <select name="resolution">
+            <option value="nudged">Nudged them</option>
+            <option value="heard back">Heard back</option>
+            <option value="moving on">Moving on</option>
+            <option value="keep training">Keep training</option>
+          </select>
+          <button type="submit">Resolve</button>
+        </form>
+        <button hx-post="/app/followups/{{ f.public_id }}/snooze" hx-target="#followups-panel" hx-swap="outerHTML">+7d</button>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No open follow-ups. Applying to a job creates one automatically.</p>
+  {% endif %}
+</div>

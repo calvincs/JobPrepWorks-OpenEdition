@@ -1,0 +1,140 @@
+{% if not has_profile and job.extract_status not in ('pending', 'extracting') %}
+<div class="card">
+  <h2>Add your background first</h2>
+  <p class="muted">Fit analysis measures this role's requirements against <em>your</em> experience — but there's nothing on your profile yet. Upload a resume or add facts, then run the analysis to see where you stand.</p>
+  <a class="btn" href="/app/profile">{{ icon('user-round', 14) }} Go to Profile</a>
+</div>
+{% elif job.analysis_status == 'running' or job.extract_status in ('pending', 'extracting') %}
+<div class="card working" role="status" aria-busy="true" hx-get="/app/jobs/{{ job.public_id }}/tab/fit" hx-target="#tab-content" hx-trigger="every 2s">
+  <p><span class="spinner" aria-hidden="true"></span>
+    {% if job.extract_status in ('pending', 'extracting') %}Waiting for extraction…{% else %}Analyzing fit against your profile…{% endif %}
+  </p>
+</div>
+{% elif job.analysis_status == 'error' %}
+<div class="card">
+  <p class="error-text">Fit analysis failed: {{ job.analysis_error }}</p>
+  <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/analyze" hx-target="#tab-content">Retry analysis</button>
+</div>
+{% elif not fit %}
+<div class="card">
+  <p class="muted">No fit analysis yet.</p>
+  {% if job.extract_status == 'ready' %}
+  <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/analyze" hx-target="#tab-content">Run analysis</button>
+  {% endif %}
+</div>
+{% else %}
+{% set strengths = fit.strengths_json | from_json %}
+{% set gaps = fit.gaps_json | from_json %}
+{% set study_areas = fit.study_areas_json | from_json %}
+{% set prev = (fit_history[1] if fit_history and fit_history | length > 1 else none) %}
+<section class="card fit-header">
+  <div class="fit-score band-{{ fit.band }}">
+    <div class="score-number">{{ fit.score }}</div>
+    <div class="score-band">{{ fit.band }}</div>
+    <div class="meter lg band-{{ fit.band }}" style="--pct: {{ fit.score }}%" aria-hidden="true"></div>
+  </div>
+  <div>
+    {% if prev %}
+    <p class="fit-delta {{ 'up' if fit.score > prev.score else ('down' if fit.score < prev.score else '') }}">
+      {{ prev.score }} → {{ fit.score }}
+      {% if fit.score > prev.score %}▲ +{{ fit.score - prev.score }}{% elif fit.score < prev.score %}▼ {{ fit.score - prev.score }}{% else %}(no change){% endif %}
+    </p>
+    {% endif %}
+    <p class="muted small">Version {{ fit.version }} · {{ fit.created_at }}</p>
+    <button hx-post="/app/jobs/{{ job.public_id }}/analyze" hx-target="#tab-content"
+            hx-confirm="Re-run the fit analysis against your current profile?">Re-analyze</button>
+    {% if fit_history and fit_history | length > 1 %}
+    <p class="muted small fit-history">History:
+      {% for h in fit_history | reverse %}{{ h.score }}{% if not loop.last %} → {% endif %}{% endfor %}
+    </p>
+    {% endif %}
+  </div>
+</section>
+
+{% set alignment = (fit.alignment_json | from_json) if fit.alignment_json else none %}
+{% if alignment %}
+<section class="card">
+  <h2>Fit for you <span class="badge align-{{ alignment.verdict }}">{{ alignment.verdict }}</span></h2>
+  <p class="md">{{ alignment.summary | md }}</p>
+  {% if alignment.advances %}
+  <h3 class="fact-kind">Moves you forward</h3>
+  <ul class="finding-list">
+    {% for p in alignment.advances %}
+    <li><strong>{{ p.aspect }}</strong><div class="muted md">{{ p.reason | md }}</div></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if alignment.conflicts %}
+  <h3 class="fact-kind">Works against your direction</h3>
+  <ul class="finding-list">
+    {% for p in alignment.conflicts %}
+    <li><strong>{{ p.aspect }}</strong><div class="muted md">{{ p.reason | md }}</div></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% elif has_direction %}
+<section class="card">
+  <p class="muted">You've set a career direction since this analysis ran — re-analyze to see how this role fits <em>you</em>, not just your resume.</p>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Strengths</h2>
+  {% if strengths %}
+  <ul class="finding-list">
+    {% for s in strengths %}
+    <li><strong>{{ s.requirement }}</strong><div class="evidence md">{{ s.evidence | md }}</div></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">No evidenced strengths for this role yet.</p>{% endif %}
+</section>
+
+{# gap-resolved (fired by the add-fact POST once a gap's fact lands) re-fetches
+   the tab so the gap shows checked off — same listener convention as
+   facts_section.html's refresh-facts. #}
+<section class="card" id="gaps-card"
+         hx-get="/app/jobs/{{ job.public_id }}/tab/fit" hx-target="#tab-content"
+         hx-trigger="gap-resolved from:body">
+  <h2>Gaps</h2>
+  {% if gaps %}
+  <p class="muted small">Not really a gap? If you have it but your profile doesn't show it, add it to your profile — then re-analyze.</p>
+  <ul class="finding-list">
+    {% for g in gaps %}
+    {% set done = (g.requirement | canonical) in resolved_gaps %}
+    <li{% if done %} class="gap-resolved"{% endif %}>
+      <strong>{{ g.requirement }}</strong>
+      <span class="badge imp-{{ g.importance }}">{{ g.importance }}</span>
+      {% if done %}<span class="badge gap-done">{{ icon('circle-check', 12) }} Added to profile</span>{% endif %}
+      <div class="muted md">{{ g.why | md }}</div>
+      {% if not done %}
+      <button type="button" class="sm gap-add-fact" data-open-dialog="add-fact-dialog"
+              data-fact-kind="skill" data-fact-name="{{ g.requirement }}">
+        {{ icon('plus', 13) }} I have this — add to profile
+      </button>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <div id="gap-parse-host"></div>
+  {% else %}<p class="muted">No gaps — every requirement is evidenced.</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Where to study</h2>
+  {% if study_areas %}
+  <ul class="finding-list">
+    {% for a in study_areas %}
+    <li>
+      <strong>{{ a.topic }}</strong>
+      <div class="muted md">{{ a.why_it_matters | md }}</div>
+      <ul class="small">{% for s in a.suggestions %}<li class="md">{{ s | md }}</li>{% endfor %}</ul>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">Nothing to study — you are ready for this one.</p>{% endif %}
+</section>
+{% if gaps %}
+{% with fact_dialog_origin = 'gap', fact_dialog_job_pid = job.public_id %}{% include "partials/add_fact_dialog.html" %}{% endwith %}
+{% endif %}
+{% endif %}

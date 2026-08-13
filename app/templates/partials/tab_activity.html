@@ -1,0 +1,90 @@
+<section class="card">
+  <h2>Open follow-ups</h2>
+  {% if follow_ups %}
+  <ul class="followup-list">
+    {% for f in follow_ups %}
+    <li class="followup {{ 'overdue' if f.due else '' }}">
+      <div class="followup-main">
+        <span class="badge {{ 'imp-critical' if f.due else 'subtle' }}">{{ 'due' if f.due else 'upcoming' }} {{ f.due_at }}</span>
+        {{ f.reason }}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted small">None open.</p>
+  {% endif %}
+  <form method="post" action="/app/jobs/{{ job.public_id }}/followups" class="inline-form"
+        hx-post="/app/jobs/{{ job.public_id }}/followups" hx-target="#tab-content">
+    <label><span>Due<span class="req" aria-hidden="true">*</span></span>
+      <input type="date" name="due_at" required></label>
+    <label><span>Reason<span class="req" aria-hidden="true">*</span></span>
+      <input type="text" name="reason" placeholder="e.g. follow up if no reply" required></label>
+    <button type="submit">Add follow-up</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Log activity</h2>
+  <details class="log-form">
+    <summary>Log a real interview</summary>
+    <form method="post" action="/app/jobs/{{ job.public_id }}/events/interview" class="stacked-form"
+          hx-post="/app/jobs/{{ job.public_id }}/events/interview" hx-target="#tab-content">
+      <div class="form-row">
+        <label>When <input type="date" name="occurred_at"></label>
+        <label>Round <input type="text" name="round" placeholder="e.g. phone screen, onsite 2"></label>
+        <label>Format <input type="text" name="format" placeholder="e.g. technical, panel"></label>
+      </div>
+      <label>How did it go? <input type="text" name="how_it_went" placeholder="honest read"></label>
+      <label>Notes <textarea name="notes" rows="3"></textarea></label>
+      <button type="submit" class="primary">Log interview</button>
+    </form>
+  </details>
+  <details class="log-form">
+    <summary>Add employer feedback</summary>
+    <form method="post" action="/app/jobs/{{ job.public_id }}/events/feedback" class="stacked-form"
+          hx-post="/app/jobs/{{ job.public_id }}/events/feedback" hx-target="#tab-content">
+      <label><span>Feedback received<span class="req" aria-hidden="true">*</span></span>
+        <textarea name="text" rows="3" required
+        placeholder="What they said — this feeds your study guides and insights"></textarea></label>
+      <button type="submit" class="primary">Add feedback</button>
+    </form>
+  </details>
+  <details class="log-form">
+    <summary>Add a note</summary>
+    <form method="post" action="/app/jobs/{{ job.public_id }}/events/note" class="stacked-form"
+          hx-post="/app/jobs/{{ job.public_id }}/events/note" hx-target="#tab-content">
+      <label><span>Note<span class="req" aria-hidden="true">*</span></span>
+        <textarea name="text" rows="2" required></textarea></label>
+      <button type="submit" class="primary">Add note</button>
+    </form>
+  </details>
+</section>
+
+<section class="card">
+  <h2>Timeline</h2>
+  {% if events %}
+  <ul class="event-list">
+    {% for e in events %}
+    <li class="event">
+      <span class="muted small">{{ e.occurred_at }}</span>
+      {% if e.kind == 'status_change' %}
+      <span class="badge subtle">status</span> {{ e.payload.get('from') }} → <strong>{{ e.payload.get('to') }}</strong>
+      {% elif e.kind == 'interview' %}
+      <span class="badge sess-active">interview</span>
+      <strong>{{ e.payload.get('round') or 'interview' }}</strong>
+      {% if e.payload.get('format') %}<span class="muted">({{ e.payload.get('format') }})</span>{% endif %}
+      {% if e.payload.get('how_it_went') %}<div>{{ e.payload.get('how_it_went') }}</div>{% endif %}
+      {% if e.payload.get('notes') %}<div class="muted">{{ e.payload.get('notes') }}</div>{% endif %}
+      {% elif e.kind == 'feedback' %}
+      <span class="badge imp-important">feedback</span> {{ e.payload.get('text') }}
+      {% else %}
+      <span class="badge subtle">note</span> {{ e.payload.get('text') }}
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No activity yet. Status changes are logged automatically.</p>
+  {% endif %}
+</section>

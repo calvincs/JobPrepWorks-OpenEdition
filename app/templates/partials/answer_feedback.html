@@ -1,0 +1,113 @@
+{% import "partials/thread_macros.html" as thread %}
+{# Refresh the page-header count badge alongside the swapped question area
+   (drill pages have no header badge — nothing to refresh there). #}
+{% if not is_drill %}{% with oob = True %}{% include "partials/session_progress.html" %}{% endwith %}{% endif %}
+{% macro session_actions() %}
+  {% if is_drill %}
+  {# A drill is one question: after feedback you're done, or you can practice the
+     same topic again with a fresh question. #}
+  <div class="feedback-actions">
+    <form method="post" action="/app/study/practice/{{ session_pid }}/again">
+      <button type="submit" class="primary" autofocus>{{ icon('rotate-cw', 15) }} Practice another</button>
+    </form>
+    <a class="btn" href="/app/study">Done</a>
+  </div>
+  {% else %}
+  <div class="feedback-actions">
+    <button class="primary" autofocus hx-post="/app/interviews/{{ session_pid }}/next"
+            hx-target="#question-area" hx-swap="innerHTML">
+      {% if remaining > 0 %}Next question ({{ remaining }} left){% else %}Finish session{% endif %}
+    </button>
+  </div>
+  {% endif %}
+{% endmacro %}
+{% if answer.grade_status == 'grading' %}
+<section class="card working" role="status" aria-busy="true"
+         hx-get="/app/interviews/{{ session_pid }}/feedback/{{ answer.public_id }}"
+         hx-trigger="load delay:1s, every 2s" hx-target="#question-area" hx-swap="innerHTML">
+  <p><span class="spinner" aria-hidden="true"></span> Grading your answer…</p>
+  <p class="muted small">{{ answer.question_text }}</p>
+</section>
+{% elif answer.grade_status == 'error' %}
+<section class="card">
+  <p class="error-text">Grading failed: {{ answer.grade_error }}</p>
+  <button class="primary" hx-post="/app/interviews/{{ session_pid }}/feedback/{{ answer.public_id }}/regrade"
+          hx-target="#question-area" hx-swap="innerHTML">Retry grading</button>
+  <button hx-post="/app/interviews/{{ session_pid }}/next" hx-target="#question-area" hx-swap="innerHTML">
+    Skip feedback, continue
+  </button>
+</section>
+{% else %}
+<section class="card feedback-card">
+  {% if is_drill %}
+  {# Single-question drill: no counter/meter — just its real end state. #}
+  <div class="drill-state pill-row">
+    <span class="badge badge-graded">graded</span>
+    <span class="score-chip s{{ answer.score }}">{{ answer.score }}/5 <b class="band">{{ answer.score | answer_band }}</b></span>
+    <span class="scale-hint">1–2 weak · 3 fair · 4–5 strong</span>
+  </div>
+  {% elif total %}
+  <div class="session-progress">
+    <p class="muted small">{{ answered_count }} of {{ total }} answered</p>
+    <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="{{ total }}"
+         aria-valuenow="{{ answered_count }}" aria-label="Session progress"
+         style="--pct: {{ (answered_count / total * 100) | round | int }}%"></div>
+  </div>
+  {% endif %}
+
+  <div class="thread">
+    {{ thread.q_turn(answer.question_text, 'Question · ' ~ answer.question_type ~ ' · ' ~ answer.skill_display) }}
+    {% if answer.answer_text %}{{ thread.you_turn(answer.answer_text) }}{% endif %}
+    {{ thread.coach_turn(answer.score, answer.feedback) }}
+
+    {% if answer.followup_status == 'awaiting' %}
+    {# Weak answer — the interviewer probes for the specifics you missed. #}
+    {{ thread.followup_divider() }}
+    {{ thread.q_turn(answer.followup_question) }}
+    <div class="turn turn-you turn-reply">
+      <p class="turn-label">Your turn</p>
+      <form hx-post="/app/interviews/{{ session_pid }}/feedback/{{ answer.public_id }}/followup"
+            hx-target="#question-area" hx-swap="innerHTML" class="stacked-form">
+        <textarea name="followup_text" rows="5" required autofocus
+                  placeholder="Answer the follow-up — this is your chance to get specific…"></textarea>
+        <button type="submit" class="primary">Submit follow-up</button>
+      </form>
+      <button type="button" class="linklike" hx-post="/app/interviews/{{ session_pid }}/next"
+              hx-target="#question-area" hx-swap="innerHTML">Skip follow-up</button>
+    </div>
+
+    {% elif answer.followup_status == 'grading' %}
+    {{ thread.followup_divider() }}
+    {{ thread.q_turn(answer.followup_question) }}
+    {% if answer.followup_answer %}{{ thread.you_turn(answer.followup_answer) }}{% endif %}
+    <div class="turn working" role="status" aria-busy="true"
+         hx-get="/app/interviews/{{ session_pid }}/feedback/{{ answer.public_id }}"
+         hx-trigger="load delay:1s, every 2s" hx-target="#question-area" hx-swap="innerHTML">
+      <p><span class="spinner" aria-hidden="true"></span> Grading your follow-up…</p>
+    </div>
+
+    {% elif answer.followup_status == 'ready' %}
+    {{ thread.followup_divider() }}
+    {{ thread.q_turn(answer.followup_question) }}
+    {% if answer.followup_answer %}{{ thread.you_turn(answer.followup_answer) }}{% endif %}
+    {{ thread.coach_turn(answer.followup_score, answer.followup_feedback, thread.delta_of(answer.score, answer.followup_score) | trim) }}
+
+    {% elif answer.followup_status == 'error' %}
+    {{ thread.followup_divider() }}
+    {{ thread.q_turn(answer.followup_question) }}
+    {% if answer.followup_answer %}{{ thread.you_turn(answer.followup_answer) }}{% endif %}
+    <div class="turn">
+      <p class="error-text">Couldn't grade the follow-up: {{ answer.followup_error }}</p>
+      <button class="primary" hx-post="/app/interviews/{{ session_pid }}/feedback/{{ answer.public_id }}/followup/regrade"
+              hx-target="#question-area" hx-swap="innerHTML">Retry</button>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+{# Actions sit below the card (not inside it) so they don't crowd the last
+   coach turn — matching the finished-drill view you land on after a refresh. #}
+{% if answer.followup_status not in ('awaiting', 'grading') %}
+{{ session_actions() }}
+{% endif %}
+{% endif %}

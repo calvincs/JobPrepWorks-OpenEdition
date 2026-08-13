@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Jobs · JobPrep Works{% endblock %}
+{% block content %}
+<h1>Jobs</h1>
+<p class="muted page-lede">The roles you're targeting. Paste a posting or upload a file and JobPrep extracts the details, scores your honest fit, and builds a tailored mock-interview bank.</p>
+
+<details class="add-job card" {% if error or not jobs %}open{% endif %}>
+  <summary class="add-job-summary">
+    <span class="add-job-title">{{ icon('plus', 16) }} Add a job</span>
+    <span class="add-job-hint muted small">Paste a posting or upload a file</span>
+  </summary>
+  <div class="add-job-content">
+    <form method="post" action="/app/jobs" enctype="multipart/form-data" class="stacked-form">
+      <label>Paste the job posting
+        <textarea name="posting_text" rows="8" placeholder="Paste the full job description here…"></textarea>
+      </label>
+      <div class="form-row">
+        <div class="dz-field">
+          <span class="mono-label">…or upload it as a file</span>
+          <div class="dropzone">
+            <input type="file" name="posting_file" accept=".pdf,.docx,.txt,.md" aria-label="Upload the posting as a file">
+            <span class="dz-prompt">{{ icon('upload', 16) }} Drop the posting here or <em>browse</em></span>
+            <span class="dz-file" data-dz-name hidden></span>
+          </div>
+        </div>
+        <label>Posting URL <span class="muted small">(reference only — never fetched)</span>
+          <input type="url" name="url" placeholder="https://…">
+        </label>
+      </div>
+      {% if error %}<p class="error-text">{{ error }}</p>{% endif %}
+      <button type="submit" class="primary">Add job</button>
+    </form>
+  </div>
+</details>
+
+<section class="card">
+  <div class="section-head">
+    <h2>Your jobs</h2>
+  </div>
+  {% if jobs and not has_profile %}
+  <div class="notice">
+    <span>{{ icon('user-round', 15) }} Fit scores need your background first. Add a resume or profile facts and we'll score how well each job matches you.</span>
+    <a class="btn" href="/app/profile">Add your background</a>
+  </div>
+  {% endif %}
+  {% from "partials/sort_th.html" import sort_th %}
+  {% if jobs %}
+  <table>
+    <thead><tr>
+      {{ sort_th('/app/jobs', 'title', 'Title', 'asc', sort, dir) }}
+      {{ sort_th('/app/jobs', 'company', 'Company', 'asc', sort, dir) }}
+      {{ sort_th('/app/jobs', 'status', 'Status', 'asc', sort, dir) }}
+      {{ sort_th('/app/jobs', 'interest', 'Interest', 'desc', sort, dir) }}
+      {{ sort_th('/app/jobs', 'fit', 'Fit', 'desc', sort, dir) }}
+      {{ sort_th('/app/jobs', 'added', 'Added', 'desc', sort, dir) }}
+      <th></th>
+    </tr></thead>
+    <tbody>
+      {% for job in jobs %}
+      {% include "partials/job_row.html" %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No jobs yet — add one above.</p>
+  {% endif %}
+</section>
+{% endblock %}

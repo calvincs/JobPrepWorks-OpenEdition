@@ -1,0 +1,88 @@
+<!--
+  Standalone printable resume — the ONLY template in this app that is not
+  either an app-shell page (extends base.html) or a partials/*.html fragment
+  swapped into #tab-content. This template is also rendered directly via
+  templates.env.get_template(...).render(...) (no `request` in context) by
+  resume_service.render_html() for the .html download — it must therefore
+  NEVER reference `request` or any request-dependent global (theme_pref,
+  etc.), or that path breaks.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{ user.name or 'Resume' }}{% if job.title %} — {{ job.title }}{% endif %}</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; line-height: 1.45; background: #fff; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.1rem; }
+    .contact, .headline { color: #444; margin: 0 0 0.75rem; }
+    h2 { font-size: 1.05rem; border-bottom: 1px solid #ccc; margin-top: 1.5rem; padding-bottom: 0.2rem; }
+    .entry-head { font-weight: 600; margin-bottom: 0.1rem; }
+    .entry-dates { color: #555; font-size: 0.9rem; margin: 0 0 0.3rem; }
+    ul { margin: 0.25rem 0 0.75rem 1.1rem; padding: 0; }
+    .print-bar { margin-bottom: 1.5rem; }
+    .print-bar button { font: inherit; padding: 0.5rem 1rem; cursor: pointer; }
+    @media print {
+      .print-bar { display: none !important; }
+      body { margin: 0; max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  {% if printable %}
+  <div class="print-bar">
+    <button type="button" data-action="print">Print / Save as PDF</button>
+  </div>
+  {% endif %}
+
+  <h1>{{ user.name or 'Resume' }}</h1>
+  <p class="contact">{{ [user.contact_email, user.contact_phone, job.location] | select | join(' · ') }}</p>
+  {% if content.headline %}<p class="headline"><strong>{{ content.headline }}</strong></p>{% endif %}
+
+  <h2>Summary</h2>
+  <p>{{ content.summary }}</p>
+
+  {% if content.skills %}
+  <h2>Skills</h2>
+  <ul>
+    {% for g in content.skills %}<li><strong>{{ g.category }}:</strong> {{ g['items'] | join(', ') }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if content.experience %}
+  <h2>Experience</h2>
+  {% for e in content.experience %}
+  <p class="entry-head">{{ e.title }}{% if e.organization %} — {{ e.organization }}{% endif %}</p>
+  {% if e.start_date or e.end_date %}<p class="entry-dates">{{ e.start_date or '?' }} – {{ e.end_date or 'present' }}</p>{% endif %}
+  <ul>{% for b in e.bullets %}<li>{{ b }}</li>{% endfor %}</ul>
+  {% endfor %}
+  {% endif %}
+
+  {% if content.education %}
+  <h2>Education</h2>
+  {% for ed in content.education %}
+  <p class="entry-head">{{ ed.degree }}{% if ed.institution %} — {{ ed.institution }}{% endif %}</p>
+  {% if ed.detail %}<p>{{ ed.detail }}</p>{% endif %}
+  {% endfor %}
+  {% endif %}
+
+  {% if content.certifications %}
+  <h2>Certifications</h2>
+  <ul>{% for c in content.certifications %}<li>{{ c.name }}{% if c.organization %} — {{ c.organization }}{% endif %}{% if c.date %} ({{ c.date }}){% endif %}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if content.projects %}
+  <h2>Projects</h2>
+  {% for p in content.projects %}
+  <p class="entry-head">{{ p.name }}</p>
+  {% if p.detail %}<p>{{ p.detail }}</p>{% endif %}
+  <ul>{% for b in p.bullets %}<li>{{ b }}</li>{% endfor %}</ul>
+  {% endfor %}
+  {% endif %}
+
+  {% if printable %}<script src="{{ static_url('resume-print.js') }}" defer></script>{% endif %}
+</body>
+</html>

@@ -1,0 +1,83 @@
+{# The Add-a-fact modal: a describe (free-text parse) pane and a manual pane.
+   Included on the Profile page and on the job Fit tab's Gaps card. Set
+   fact_dialog_origin='gap' for the Fit-tab variant: there is no
+   #facts-section on that page, so the forms carry origin=gap and the router
+   answers with a toast (manual) or a self-polling parse banner swapped into
+   #gap-parse-host (describe) instead of re-rendering the facts section.
+   The gap variant's manual form also carries fact_dialog_job_pid plus a
+   gap_requirement hidden field (seeded by app.js from the opener's original
+   data-fact-name, surviving user edits to the visible name) so the router can
+   check the gap off on the tab. The describe pane deliberately doesn't — its
+   async multi-fact parse can't be attributed to one gap. #}
+{% set origin = fact_dialog_origin | default('profile') %}
+<dialog id="add-fact-dialog">
+  <h2>Add a fact</h2>
+  <div class="pill-row add-fact-modes" role="group" aria-label="How to add the fact">
+    <button type="button" class="pill active-pill" data-fact-mode="describe" aria-pressed="true">Describe it</button>
+    <button type="button" class="pill" data-fact-mode="manual" aria-pressed="false">Enter manually</button>
+  </div>
+
+  <form id="parse-fact-form" method="post" action="/app/profile/facts/parse" data-fact-pane="describe"
+        hx-post="/app/profile/facts/parse" class="stacked-form"
+        {% if origin == 'gap' %}hx-target="#gap-parse-host" hx-swap="innerHTML"{% else %}hx-target="#facts-section" hx-swap="outerHTML"{% endif %}>
+    {% if origin == 'gap' %}<input type="hidden" name="origin" value="gap">{% endif %}
+    <p class="muted small dialog-lede">Say it in your own words — type or use the mic — and it's parsed into structured facts.</p>
+    <textarea name="text" rows="5" required
+              placeholder="e.g. Five years at Globex as a senior data engineer — built Spark pipelines on AWS and led a team of three."></textarea>
+    <div class="dialog-actions">
+      <button type="button" data-close-dialog>Cancel</button>
+      <button type="submit" class="primary">Add facts</button>
+    </div>
+  </form>
+
+  <form id="add-fact-form" method="post" action="/app/profile/facts" data-fact-pane="manual" hidden
+        hx-post="/app/profile/facts" class="stacked-form"
+        {% if origin == 'gap' %}hx-swap="none"{% else %}hx-target="#facts-section" hx-swap="outerHTML"{% endif %}>
+    {% if origin == 'gap' %}
+    <input type="hidden" name="origin" value="gap">
+    {# job_pid is a server-rendered default attribute, so form.reset() on open
+       keeps it; gap_requirement defaults empty, so reset clears a previous
+       gap's seed before app.js re-seeds it. #}
+    <input type="hidden" name="job_pid" value="{{ fact_dialog_job_pid | default('') }}">
+    <input type="hidden" name="gap_requirement" value="">
+    {% endif %}
+    <p class="muted small dialog-lede">Enter a career detail by hand — no document needed. Fill only what's relevant.</p>
+    <label><span>Type<span class="req" aria-hidden="true">*</span></span>
+      <select name="kind" required>
+        <option value="role">Work history</option>
+        <option value="skill">Skill</option>
+        <option value="cert">Certification</option>
+        <option value="education">Education</option>
+        <option value="project">Project</option>
+        <option value="direction">Career direction</option>
+      </select>
+    </label>
+    <label><span>Name<span class="req" aria-hidden="true">*</span></span>
+      <input type="text" name="name" required
+             placeholder="e.g. Senior Engineer · Python · AWS Solutions Architect"></label>
+    <label>Organization
+      <input type="text" name="organization" placeholder="employer / issuer / school">
+    </label>
+    <label>Detail
+      <input type="text" name="detail" data-dictate placeholder="scope, context, what you did">
+    </label>
+    <label data-fact-field="proficiency" hidden>Proficiency
+      <select name="proficiency">
+        <option value="">—</option>
+        {% for p in ('beginner', 'intermediate', 'advanced', 'expert') %}
+        <option value="{{ p }}">{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="form-row" data-fact-field="dates">
+      <label>Start
+        <input type="text" name="start_date" placeholder="e.g. 2021 or Jan 2021"></label>
+      <label>End
+        <input type="text" name="end_date" placeholder="e.g. 2024 or present"></label>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" data-close-dialog>Cancel</button>
+      <button type="submit" class="primary">Add fact</button>
+    </div>
+  </form>
+</dialog>

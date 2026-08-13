@@ -1,0 +1,43 @@
+{% if session.assessment_status == 'running' %}
+<section class="card working" role="status" aria-busy="true"
+         hx-get="/app/interviews/{{ session.public_id }}/assessment"
+         hx-trigger="load delay:1s, every 2s" hx-target="#assessment-area" hx-swap="innerHTML">
+  <p><span class="spinner" aria-hidden="true"></span> Writing your assessment…</p>
+</section>
+{% elif session.assessment_status == 'error' %}
+<section class="card">
+  <p class="error-text">Assessment failed: {{ session.assessment_error }}</p>
+  <button class="primary" hx-post="/app/interviews/{{ session.public_id }}/assessment/retry"
+          hx-target="#assessment-area" hx-swap="innerHTML">Retry</button>
+</section>
+{% elif assessment %}
+{% set per_skill = assessment.per_skill_json | from_json %}
+{% set next_actions = assessment.next_actions_json | from_json %}
+<section class="card">
+  <h2>Assessment</h2>
+  <div class="md">{{ assessment.summary | md }}</div>
+  {% if per_skill %}
+  <h3 class="fact-kind">By skill</h3>
+  <ul class="finding-list">
+    {% for s in per_skill %}
+    <li><strong>{{ s.skill }}</strong><div class="muted md">{{ s.comment | md }}</div></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if next_actions %}
+  <h3 class="fact-kind">Next actions</h3>
+  <ol>
+    {% for a in next_actions %}<li class="md">{{ a | md }}</li>{% endfor %}
+  </ol>
+  {% endif %}
+  {% if session.job_id %}
+  <p class="muted small">Your study guide is being updated from this session —
+    <a href="/app/jobs/{{ session.job_pid }}?tab=study">view it</a>.</p>
+  {% else %}
+  <p class="muted small">Your global study guide is being updated from this session —
+    <a href="/app/study">view it</a>.</p>
+  {% endif %}
+</section>
+{% elif session.status == 'abandoned' %}
+<section class="card"><p class="muted">Session abandoned — no assessment generated.</p></section>
+{% endif %}

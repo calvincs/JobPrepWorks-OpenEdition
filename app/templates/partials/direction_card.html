@@ -1,0 +1,35 @@
+{# Career-direction card: entry point for the wizard. The opener button both
+   opens the dialog (data-open-dialog, app.js) and loads step 1 into the
+   dialog's host (hx-get) — no wizard-specific JS. Refreshes itself whenever
+   the facts change (wizard finish, fact edits/deletes fire refresh-facts). #}
+<section class="card" id="direction-card"
+         hx-get="/app/profile/direction/card" hx-trigger="refresh-facts from:body"
+         hx-target="#direction-card" hx-swap="outerHTML">
+  <div class="section-head">
+    <h2>Career direction</h2>
+    {% if direction_answered %}
+    {# hx-swap is explicit: these buttons sit inside this card's outerHTML
+       self-refresh scope and would otherwise inherit it — replacing the
+       dialog's #direction-step-host instead of filling it. #}
+    <button type="button" class="sm" data-open-dialog="direction-dialog"
+            hx-get="/app/profile/direction/step/1" hx-target="#direction-step-host"
+            hx-swap="innerHTML">
+      {{ icon('square-pen', 14) }} Edit answers
+    </button>
+    {% endif %}
+  </div>
+  {% if direction_answered %}
+  <p class="muted">{{ direction_answered }} of {{ direction_total }} answered.
+    Fit analyses now weigh where you're headed, and your pitch speaks to it.</p>
+  {% else %}
+  <p class="muted">Tell JobPrep where you're headed. Fit analyses gain a
+    <strong>Fit for you</strong> verdict — does the job advance your goals, not just
+    match your resume — and your pitch speaks to your direction. A few quick
+    questions, every one skippable; type or use the mic.</p>
+  <button type="button" class="primary" data-open-dialog="direction-dialog"
+          hx-get="/app/profile/direction/step/1" hx-target="#direction-step-host"
+          hx-swap="innerHTML">
+    {{ icon('target', 14) }} Set your career direction
+  </button>
+  {% endif %}
+</section>

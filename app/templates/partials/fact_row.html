@@ -1,0 +1,24 @@
+<li id="fact-{{ fact.public_id }}" class="fact{% if fact.orphaned %} orphaned{% endif %}" data-kind="{{ fact.kind }}">
+  <div class="fact-main">
+    <strong>{{ fact.name }}</strong>{% if fact.organization %} <span class="fact-org">· {{ fact.organization }}</span>{% endif %}
+    {% if fact.proficiency %}<span class="badge subtle">{{ fact.proficiency }}</span>{% endif %}
+    {% if fact.orphaned %}<span class="badge warn" title="No source document — every document that mentioned this fact was removed">unsourced</span>
+    {% elif fact.source_count == 0 %}<span class="badge subtle" title="Entered by hand — no source document">manual</span>
+    {% elif fact.user_edited %}<span class="badge subtle">edited</span>{% endif %}
+    {% if fact.detail %}<div class="muted">{{ fact.detail }}</div>{% endif %}
+    {% if fact.start_date or fact.end_date %}
+    <div class="muted small">{{ fact.start_date or '?' }} — {{ fact.end_date or 'present' }}</div>
+    {% endif %}
+    {% if fact.evidence_text %}<div class="evidence">“{{ fact.evidence_text }}”</div>{% endif %}
+    {% if fact.sources %}
+    <div class="fact-sources">
+      {% for s in fact.sources %}<span class="doc-tag">{{ icon('file-text', 11) }} {{ s.filename }}</span>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="row-actions">
+    <button hx-get="/app/profile/facts/{{ fact.public_id }}/edit" hx-target="#edit-fact-host" hx-swap="innerHTML">Edit</button>
+    <button class="danger" hx-post="/app/profile/facts/{{ fact.public_id }}/delete"
+            hx-target="#fact-{{ fact.public_id }}" hx-swap="outerHTML" hx-confirm="Delete this fact?">Delete</button>
+  </div>
+</li>

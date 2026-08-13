@@ -1,0 +1,110 @@
+{% if not has_profile and job.extract_status not in ('pending', 'extracting') %}
+<div class="card">
+  <h2>Add your background first</h2>
+  <p class="muted">Your resume is built from <em>your</em> evidenced facts — but there's nothing on your profile yet. Upload a resume or add facts, then come back to build one.</p>
+  <a class="btn" href="/app/profile">{{ icon('user-round', 14) }} Go to Profile</a>
+</div>
+{% elif job.resume_status == 'running' or job.extract_status in ('pending', 'extracting') %}
+<div class="card working" role="status" aria-busy="true" hx-get="/app/jobs/{{ job.public_id }}/tab/resume" hx-target="#tab-content" hx-trigger="every 2s">
+  <p><span class="spinner" aria-hidden="true"></span>
+    {% if job.extract_status in ('pending', 'extracting') %}Waiting for extraction…{% else %}Building your resume…{% endif %}
+  </p>
+</div>
+{% elif job.resume_status == 'error' %}
+<div class="card">
+  <p class="error-text">Resume generation failed: {{ job.resume_error }}</p>
+  {% if resume_blocked %}
+  <p class="muted">{{ resume_blocked_message }}</p>
+  {% else %}
+  <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/resume" hx-target="#tab-content">Retry</button>
+  {% endif %}
+</div>
+{% elif not resume %}
+<div class="card">
+  <h2>Tailored resume for this role</h2>
+  <p class="muted">A resume rewritten around this job's must-haves, built from your evidenced facts — viewable, printable to PDF, and downloadable as Markdown, HTML, or plain text.</p>
+  {% if resume_blocked %}
+  <p class="muted">{{ resume_blocked_message }}</p>
+  {% elif job.extract_status == 'ready' %}
+  <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/resume" hx-target="#tab-content">
+    {{ icon('file-text', 14) }} Build my resume
+  </button>
+  {% endif %}
+</div>
+{% else %}
+{% set r = resume.content_json | from_json %}
+<section class="card">
+  <h2>{{ r.headline }}</h2>
+  <p>{{ r.summary }}</p>
+</section>
+{% if r.skills %}
+<section class="card">
+  <h2>Skills</h2>
+  <ul class="finding-list">
+    {% for g in r.skills %}<li><strong>{{ g.category }}:</strong> {{ g['items'] | join(', ') }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% if r.experience %}
+<section class="card">
+  <h2>Experience</h2>
+  {% for e in r.experience %}
+  <div class="resume-entry">
+    <p><strong>{{ e.title }}</strong>{% if e.organization %} — {{ e.organization }}{% endif %}</p>
+    {% if e.start_date or e.end_date %}<p class="muted small">{{ e.start_date or '?' }} – {{ e.end_date or 'present' }}</p>{% endif %}
+    <ul class="finding-list">
+      {% for b in e.bullets %}<li>{{ b }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% if r.education %}
+<section class="card">
+  <h2>Education</h2>
+  {% for ed in r.education %}
+  <div class="resume-entry">
+    <p><strong>{{ ed.degree }}</strong>{% if ed.institution %} — {{ ed.institution }}{% endif %}</p>
+    {% if ed.detail %}<p class="muted small">{{ ed.detail }}</p>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% if r.certifications %}
+<section class="card">
+  <h2>Certifications</h2>
+  <ul class="finding-list">
+    {% for c in r.certifications %}<li>{{ c.name }}{% if c.organization %} — {{ c.organization }}{% endif %}{% if c.date %} ({{ c.date }}){% endif %}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% if r.projects %}
+<section class="card">
+  <h2>Projects</h2>
+  {% for p in r.projects %}
+  <div class="resume-entry">
+    <p><strong>{{ p.name }}</strong></p>
+    {% if p.detail %}<p class="muted small">{{ p.detail }}</p>{% endif %}
+    <ul class="finding-list">
+      {% for b in p.bullets %}<li>{{ b }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+<section class="card">
+  <p class="muted small">Version {{ resume.version }} · {{ resume.created_at }}</p>
+  <div class="pill-row">
+    <a class="btn" href="/app/jobs/{{ job.public_id }}/resume/view" target="_blank" rel="noopener">{{ icon('external-link', 14) }} View / Print</a>
+    <a class="btn" href="/app/jobs/{{ job.public_id }}/resume/download?format=md">Download .md</a>
+    <a class="btn" href="/app/jobs/{{ job.public_id }}/resume/download?format=html">Download .html</a>
+    <a class="btn" href="/app/jobs/{{ job.public_id }}/resume/download?format=txt">Download .txt</a>
+  </div>
+  {% if resume_blocked %}
+  <p class="muted small">{{ resume_blocked_message }}</p>
+  {% else %}
+  <button hx-post="/app/jobs/{{ job.public_id }}/resume" hx-target="#tab-content"
+          hx-confirm="Rewrite the resume from your current profile and fit analysis?">Regenerate</button>
+  {% endif %}
+</section>
+{% endif %}

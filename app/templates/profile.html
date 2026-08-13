@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Profile · JobPrep Works{% endblock %}
+{% block content %}
+<h1>Profile</h1>
+
+<section class="card">
+  <div class="section-head">
+    <h2>Documents</h2>
+    <button type="button" class="primary" data-open-dialog="upload-dialog">
+      {{ icon('upload', 14) }} Upload document
+    </button>
+  </div>
+  {% if upload_error %}<p class="error-text">{{ upload_error }}</p>{% endif %}
+  {% if documents %}
+  <table>
+    <thead><tr><th>File</th><th>Status</th><th>Uploaded</th><th></th></tr></thead>
+    <tbody>
+      {% for doc in documents %}
+      {% include "partials/document_row.html" %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No documents yet — upload your resume to build your profile.</p>
+  {% endif %}
+</section>
+
+{% include "partials/direction_card.html" %}
+
+{% include "partials/facts_section.html" %}
+
+<dialog id="upload-dialog">
+  <h2>Upload a document</h2>
+  <p class="muted small dialog-lede">Resumes, work history, certificates — PDF, DOCX, TXT, or MD.
+    It's parsed into editable career facts.</p>
+  <form method="post" action="/app/profile/documents" enctype="multipart/form-data" class="stacked-form">
+    <div class="dropzone" data-dz-submit>
+      <input type="file" name="file" accept=".pdf,.docx,.txt,.md" required aria-label="Choose a document">
+      <span class="dz-prompt">{{ icon('upload', 18) }} Drop your file here or <em>browse</em></span>
+      <span class="dz-file" data-dz-name hidden></span>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" data-close-dialog>Cancel</button>
+      <button type="submit" class="primary">Upload</button>
+    </div>
+  </form>
+</dialog>
+
+{% include "partials/add_fact_dialog.html" %}
+
+{% include "partials/direction_dialog.html" %}
+
+<dialog id="edit-fact-dialog">
+  <div id="edit-fact-host"><!-- populated by GET /profile/facts/{pid}/edit --></div>
+</dialog>
+{% endblock %}

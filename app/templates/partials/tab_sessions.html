@@ -1,0 +1,29 @@
+<section class="card">
+  <div class="section-head">
+    <h2>Interview sessions</h2>
+    {% if job.extract_status == 'ready' %}
+    <form method="post" action="/app/interviews" class="inline">
+      <input type="hidden" name="job_id" value="{{ job.public_id }}">
+      <input type="hidden" name="count" value="10">
+      <button type="submit" class="primary">Start interview</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if sessions %}
+  <table>
+    <thead><tr><th>Started</th><th>Status</th><th>Progress</th><th>Avg score</th></tr></thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td><a href="/app/interviews/{{ s.public_id }}">{{ s.started_at }}</a></td>
+        <td><span class="badge sess-{{ s.status }}">{{ s.status }}</span></td>
+        <td class="muted">{{ s.answered }}/{{ s.total }}</td>
+        <td>{% if s.avg_score is not none %}<span class="score-chip s{{ s.avg_score | round | int }}">{{ s.avg_score }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No sessions for this job yet.</p>
+  {% endif %}
+</section>

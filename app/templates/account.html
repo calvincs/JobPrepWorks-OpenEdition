@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Settings · JobPrep Works{% endblock %}
+{% block meta_description %}Your name, display preference, model configuration, and today's AI usage.{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<p class="muted page-lede">This install is yours alone — no account, no sign-in, no server but the one you started.</p>
+
+<section class="card">
+  <h2>Résumé header</h2>
+  <p class="muted small">
+    Printed at the top of any résumé this app generates. These fields are never sent to
+    the model — they're stamped in at render time, so they can't be reworded or invented.
+  </p>
+  <form hx-post="/app/account/name" hx-swap="none" class="stack">
+    <div class="field-row">
+      <label>First name
+        <input type="text" name="first_name" value="{{ user.first_name or '' }}" required>
+      </label>
+      <label>Last name
+        <input type="text" name="last_name" value="{{ user.last_name or '' }}">
+      </label>
+    </div>
+    <div class="field-row">
+      <label>Email
+        <input type="email" name="contact_email" value="{{ user.contact_email or '' }}"
+               placeholder="you@example.com">
+      </label>
+      <label>Phone
+        <input type="text" name="contact_phone" value="{{ user.contact_phone or '' }}"
+               placeholder="optional">
+      </label>
+    </div>
+    <button type="submit" class="primary">Save</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Display</h2>
+  <form hx-post="/app/account/display" hx-swap="none" class="stack">
+    <label>Theme
+      <select name="theme">
+        <option value="system" {{ 'selected' if user.theme == 'system' else '' }}>Match my system</option>
+        <option value="light" {{ 'selected' if user.theme == 'light' else '' }}>Light</option>
+        <option value="dark" {{ 'selected' if user.theme == 'dark' else '' }}>Dark</option>
+      </select>
+    </label>
+    <button type="submit" class="primary">Save preference</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Model configuration</h2>
+  <p class="muted small">Read live from the running process. Edit <code>.env</code> and restart to change any of it.</p>
+  <table class="config-table">
+    <tbody>
+      <tr><th scope="row">Provider</th><td><code>{{ provider }}</code></td></tr>
+      <tr><th scope="row">Model</th><td><code>{{ model }}</code></td></tr>
+      <tr><th scope="row">Research provider</th><td><code>{{ research_provider }}</code></td></tr>
+      <tr><th scope="row">Research model</th><td><code>{{ research_model }}</code></td></tr>
+      <tr>
+        <th scope="row">Web search</th>
+        <td>
+          <code>{{ search_backend }}</code>
+          {% if search_backend == 'none' %}
+          <span class="muted small">— Company Pulse is off. Set <code>TAVILY_API_KEY</code>,
+            <code>BRAVE_API_KEY</code>, or <code>SEARXNG_URL</code> to enable it.</span>
+          {% elif search_backend == 'native' %}
+          <span class="muted small">— your provider searches the web itself</span>
+          {% else %}
+          <span class="muted small">— this app runs the searches and feeds them to the model</span>
+          {% endif %}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Today's AI usage</h2>
+  <p class="muted small">
+    You're paying for these calls directly, so here's the count. One unit is roughly one
+    action you took; a batch action spends several. Resets at UTC midnight
+    (in {{ usage.reset_h }}h {{ usage.reset_m }}m).
+  </p>
+
+  {% if usage.daily_limit %}
+  <p><strong>{{ usage.used_today }}</strong> of {{ usage.daily_limit }} actions used
+    — {{ usage.daily_left }} left.</p>
+  <div class="meter" role="img" aria-label="{{ usage.daily_pct }}% of today's limit used">
+    <span style="--pct: {{ usage.daily_pct }}%"></span>
+  </div>
+  {% else %}
+  <p><strong>{{ usage.used_today }}</strong> action{{ '' if usage.used_today == 1 else 's' }} today.</p>
+  <p class="muted small">No daily limit is set. To guard against a runaway loop burning
+    through a paid key, set <code>LLM_DAILY_LIMIT</code> in your <code>.env</code>.</p>
+  {% endif %}
+
+  {% if usage.by_kind %}
+  <ul class="usage-breakdown">
+    {% for row in usage.by_kind %}
+    <li><span>{{ row.label }}</span> <strong>{{ row.units }}</strong></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if pulse_available %}
+  <p class="muted small">
+    Company research: <strong>{{ usage.pulse_used }}</strong> used today{% if usage.pulse_limit %}
+    of {{ usage.pulse_limit }} ({{ usage.pulse_left }} left){% endif %}.
+    Each one runs live web searches, so it's counted separately.
+  </p>
+  {% endif %}
+
+  <p class="muted small">Lifetime: {{ usage.lifetime }} action{{ '' if usage.lifetime == 1 else 's' }}.</p>
+</section>
+
+<section class="card danger-card">
+  <h2>Delete all my data</h2>
+  {% if reset_error %}<p class="error-text">{{ reset_error }}</p>{% endif %}
+  <p>
+    Removes every job, document, profile fact, interview session, insight, and
+    generated résumé or pitch, plus the uploaded files behind them. Your name and
+    theme stay. <strong>This cannot be undone</strong> — the app has no backup of its own.
+  </p>
+  <p class="muted small">
+    Your data lives in one SQLite file. If you'd rather keep a copy first, stop the app
+    and copy <code>data/jobprep.db</code> somewhere safe.
+  </p>
+  <form method="post" action="/app/account/reset" class="stack"
+        data-confirm="Delete every job, document, fact, and session? This cannot be undone.">
+    <label>Type <strong>DELETE</strong> to confirm
+      <input type="text" name="confirm" autocomplete="off" required placeholder="DELETE">
+    </label>
+    <button type="submit" class="danger">Delete all my data</button>
+  </form>
+</section>
+{% endblock %}

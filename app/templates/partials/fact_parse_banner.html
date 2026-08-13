@@ -1,0 +1,18 @@
+{# One freeform fact parse: polls itself while running; errors dismiss. The
+   terminal 'ready' poll response is empty (removes the banner) and fires
+   refresh-facts + a summary toast. hx-target="this" is load-bearing: without
+   it the banner INHERITS hx-target="#facts-section" from the section and each
+   poll would swap out the whole facts list. #}
+{% if p.status == 'running' %}
+<div class="notice parse-banner" id="parse-{{ p.public_id }}"
+     hx-get="/app/profile/facts/parses/{{ p.public_id }}" hx-trigger="every 2s"
+     hx-target="this" hx-swap="outerHTML">
+  <span><span class="spinner"></span> Turning your words into facts…</span>
+</div>
+{% elif p.status == 'error' %}
+<div class="notice parse-banner parse-banner-error" id="parse-{{ p.public_id }}">
+  <span>{{ icon('flame', 15) }} {{ p.error }}</span>
+  <button type="button" class="sm" hx-post="/app/profile/facts/parses/{{ p.public_id }}/dismiss"
+          hx-target="#parse-{{ p.public_id }}" hx-swap="outerHTML">Dismiss</button>
+</div>
+{% endif %}

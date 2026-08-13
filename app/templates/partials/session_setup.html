@@ -1,0 +1,13 @@
+{% if session.setup_status == 'error' %}
+<section class="card" id="session-setup">
+  <p class="error-text">Couldn't build this interview: {{ session.setup_error }}</p>
+  <button class="primary" hx-post="/app/interviews/{{ session.public_id }}/setup/retry"
+          hx-target="#session-setup" hx-swap="outerHTML">Try again</button>
+</section>
+{% else %}
+<section class="card working" id="session-setup" role="status" aria-busy="true"
+         hx-get="/app/interviews/{{ session.public_id }}/setup" hx-trigger="every 2s" hx-swap="outerHTML">
+  <p><span class="spinner" aria-hidden="true"></span>
+    Building your interview — generating questions from this role{% if session.scope != 'job' %} and your other jobs{% endif %} and your profile…</p>
+</section>
+{% endif %}

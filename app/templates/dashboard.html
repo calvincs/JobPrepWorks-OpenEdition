@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · JobPrep Works{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+{% if doc_count == 0 or not recent_jobs %}
+<section class="coach-strip">
+  <div class="directive-body">
+    <p class="directive-label">Getting set up</p>
+    <p class="directive">Three steps to your first training session.</p>
+    <ol class="setup-steps">
+      <li class="{{ 'done' if doc_count > 0 else '' }}"><a href="/app/profile">Upload your resume</a> — it becomes your evidenced profile</li>
+      <li class="{{ 'done' if recent_jobs else '' }}"><a href="/app/jobs">Add a job you're targeting</a> — paste the posting or upload it</li>
+      <li><a href="/app/interviews">Run your first interview</a> — questions generate from the job automatically</li>
+    </ol>
+  </div>
+</section>
+{% else %}
+<section class="coach-strip">
+  <div class="directive-body">
+    <p class="directive-label">Today's directive</p>
+    {% if mastery %}
+    <p class="directive">Train <em>{{ mastery[0].skill_display }}</em> — your weakest skill at {{ mastery[0].avg_score }}/5.</p>
+    {% else %}
+    <p class="directive">Pick a job and run your first interview.</p>
+    {% endif %}
+    <a href="/app/interviews" class="btn-chalk">Start a session</a>
+  </div>
+  <div class="streak-block">
+    <div class="streak-number">{{ icon('flame', 28) }}{{ streak }}</div>
+    <div class="streak-label">day streak</div>
+  </div>
+  <div class="stat-mini">
+    <div class="n">{{ stats.sessions_completed }}</div>
+    <div class="l">sessions</div>
+  </div>
+  <div class="stat-mini">
+    <div class="n">{{ stats.questions_answered }}</div>
+    <div class="l">answers</div>
+  </div>
+  <div class="stat-mini">
+    <div class="n">{{ stats.best_session_avg if stats.best_session_avg is not none else '—' }}</div>
+    <div class="l">best avg</div>
+  </div>
+</section>
+{% endif %}
+
+<section class="cards">
+  <div class="card">
+    <h2>Skill mastery</h2>
+    {% if mastery %}
+    {% for m in mastery %}
+    <div class="mastery-row">
+      <span class="mastery-label">{{ m.skill_display }}</span>
+      <div class="meter s{{ m.avg_score | round | int }}" style="--pct: {{ (m.avg_score / 5 * 100) | round | int }}%" aria-hidden="true"></div>
+      <span class="muted small">{{ m.avg_score }}/5 · {{ m.n }}</span>
+    </div>
+    {% endfor %}
+    <p class="muted small">Weakest first — these drive question selection.</p>
+    {% else %}
+    <p class="muted">Complete an interview to start tracking mastery per skill.</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h2>Milestones</h2>
+    {% if awards %}
+    <ul class="award-list">
+      {% for a in awards %}
+      <li><span class="award-icon">{{ icon('trophy', 15) }}</span> {{ a.title }} <span class="muted small">{{ a.earned_at }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No milestones yet — they land as you practice and improve.</p>
+    {% endif %}
+  </div>
+</section>
+
+{% if follow_ups %}
+{% include "partials/followups_panel.html" %}
+{% endif %}
+
+{% if top_insights %}
+<section class="card">
+  <div class="section-head">
+    <h2>Top insights</h2>
+    <span class="section-head-actions">
+      {% if insights_state.analyzed_at %}<span class="muted small">analyzed {{ insights_state.analyzed_at | humandate }}</span>{% endif %}
+      {% if insights_state.stale %}
+      <a class="stale-link" href="/app/insights">✨ new insights available →</a>
+      {% else %}
+      <a class="muted small" href="/app/insights">all insights →</a>
+      {% endif %}
+    </span>
+  </div>
+  <ul class="finding-list">
+    {% for i in top_insights %}
+    <li>
+      <span class="badge insight-kind-{{ i.kind }}">{{ {'gap': 'focus area', 'strength': 'strength', 'sector': 'sector fit'}[i.kind] }}</span>
+      <strong>{{ i.title }}</strong>
+      <div class="muted md">{{ i.body | md }}</div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="cards">
+  <div class="card">
+    <h2>Applications</h2>
+    {% if status_counts %}
+    <div class="pill-row">
+      {% for s in statuses %}{% if status_counts.get(s) %}
+      <a class="pill status-{{ s }}" href="/app/jobs">{{ s }} <strong>{{ status_counts[s] }}</strong></a>
+      {% endif %}{% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">No jobs yet. <a href="/app/jobs">Add your first job</a>.</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h2>Profile</h2>
+    <p><strong>{{ fact_count }}</strong> facts from <strong>{{ doc_count }}</strong> documents.</p>
+    <p class="muted"><a href="/app/profile">Upload documents</a> to grow your profile.</p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Recent jobs</h2>
+  {% if recent_jobs %}
+  {% from "partials/sort_th.html" import sort_th %}
+  <table>
+    <thead><tr>
+      {{ sort_th('/app', 'title', 'Job', 'asc', sort, dir) }}
+      {{ sort_th('/app', 'status', 'Status', 'asc', sort, dir) }}
+      {{ sort_th('/app', 'fit', 'Fit', 'desc', sort, dir) }}
+      {{ sort_th('/app', 'added', 'Added', 'desc', sort, dir) }}
+    </tr></thead>
+    <tbody>
+      {% for job in recent_jobs %}
+      <tr>
+        <td><a href="/app/jobs/{{ job.public_id }}">{{ job.title or ('Untitled job' if job.extract_status == 'error' else 'Reading posting…') }}</a>
+            {% if job.company %}<span class="muted">· {{ job.company }}</span>{% endif %}</td>
+        <td><span class="badge status-{{ job.status }}">{{ job.status }}</span></td>
+        <td>{% if job.fit_score is not none %}<span class="badge band-{{ job.fit_band }}">{{ job.fit_score }} · {{ job.fit_band }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="muted">{{ job.created_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No jobs yet — <a href="/app/jobs">add your first job</a> to start training.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

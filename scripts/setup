@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# One-time setup: create a virtualenv, install dependencies, and put a .env in
+# place. Safe to re-run — it never overwrites an existing .env.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+PY="${PYTHON:-python3}"
+
+if ! command -v "$PY" >/dev/null 2>&1; then
+  echo "error: $PY not found. Install Python 3.11 or newer." >&2
+  exit 1
+fi
+
+"$PY" - <<'CHECK'
+import sys
+if sys.version_info < (3, 11):
+    sys.exit(f"error: Python 3.11+ required, found {sys.version.split()[0]}")
+import sqlite3
+if sqlite3.sqlite_version_info < (3, 35):
+    sys.exit(f"error: SQLite 3.35+ required, found {sqlite3.sqlite_version}")
+CHECK
+
+if [ ! -d .venv ]; then
+  echo "→ creating .venv"
+  "$PY" -m venv .venv
+fi
+
+echo "→ installing dependencies"
+.venv/bin/pip install --quiet --upgrade pip
+.venv/bin/pip install --quiet -r requirements.txt
+
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "→ created .env from .env.example"
+  NEEDS_KEY=1
+else
+  echo "→ .env already exists, leaving it alone"
+  NEEDS_KEY=0
+fi
+
+echo
+echo "Setup complete."
+if [ "$NEEDS_KEY" = "1" ]; then
+  echo
+  echo "Next: open .env and uncomment ONE provider block in section 1."
+  echo "To try it with no API key at all, set:  LLM_PROVIDER=mock"
+fi
+echo
+echo "Then start it with:   scripts/run"

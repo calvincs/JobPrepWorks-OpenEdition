@@ -1,0 +1,23 @@
+{# One wizard step. Swapped into #direction-step-host; the textarea gets a mic
+   automatically (dictation.js re-scans on htmx:afterSwap). #}
+<form hx-post="/app/profile/direction/step/{{ step_num }}"
+      hx-target="#direction-step-host" class="stacked-form">
+  <div class="step-dots" role="img" aria-label="Step {{ step_num }} of {{ total }}">
+    {% for i in range(1, total + 1) %}
+    <span class="step-dot{{ ' active' if i == step_num else (' done' if i in answered else '') }}"></span>
+    {% endfor %}
+  </div>
+  <p class="muted small step-kicker">{{ title }}</p>
+  <h3>{{ question }}</h3>
+  <textarea name="answer" rows="4" placeholder="{{ placeholder }}" autofocus>{{ answer }}</textarea>
+  <div class="dialog-actions">
+    <button type="button" data-close-dialog>Close</button>
+    {% if step_num < total %}
+    <button type="button" hx-get="/app/profile/direction/step/{{ step_num + 1 }}"
+            hx-target="#direction-step-host">Skip</button>
+    <button type="submit" class="primary">Save &amp; next</button>
+    {% else %}
+    <button type="submit" class="primary">Save &amp; finish</button>
+    {% endif %}
+  </div>
+</form>

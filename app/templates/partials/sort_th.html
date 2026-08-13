@@ -1,0 +1,14 @@
+{#- Sortable column header, shared by the Jobs table, the dashboard's
+    Recent-jobs card, and the drill history. base_url is the page to reload
+    with sort/dir params (it may already carry a query string, e.g.
+    /app/study?view=drills); clicking an active column flips its direction,
+    an inactive one starts at its natural default (default_dir). -#}
+{% macro sort_th(base_url, key, label, default_dir, sort, dir) %}
+  {%- set active = sort == key -%}
+  {%- set next_dir = ('desc' if dir == 'asc' else 'asc') if active else default_dir -%}
+  <th class="sortable{{ ' sorted' if active }}">
+    <a href="{{ base_url }}{% if '?' in base_url %}&{% else %}?{% endif %}sort={{ key }}&dir={{ next_dir }}">
+      {{ label }}<span class="sort-arrow" aria-hidden="true">{% if active %}{{ '▲' if dir == 'asc' else '▼' }}{% endif %}</span>
+    </a>
+  </th>
+{% endmacro %}

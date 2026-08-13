@@ -1,0 +1,45 @@
+{% set intake_live = job.extract_status in ('pending', 'extracting')
+   or job.analysis_status == 'running' %}
+<tr id="job-{{ job.public_id }}"
+    {% if intake_live %}
+    hx-get="/app/jobs/{{ job.public_id }}/row" hx-trigger="every 3s" hx-swap="outerHTML"
+    {% endif %}>
+  <td>
+    {% if job.extract_status in ('pending', 'extracting') %}
+    <span class="spinner" aria-hidden="true"></span> <a href="/app/jobs/{{ job.public_id }}">Reading posting…</a>
+    {% else %}
+    <a href="/app/jobs/{{ job.public_id }}">{{ job.title or 'Untitled job' }}</a>
+    {% endif %}
+    {% if job.extract_status == 'error' %}<span class="badge doc-error">extraction failed</span>{% endif %}
+  </td>
+  <td class="muted">{{ job.company or '—' }}</td>
+  <td><span class="badge status-{{ job.status }}">{{ job.status }}</span></td>
+  <td class="muted">{{ ('★' * job.interest_level) if job.interest_level else '—' }}</td>
+  <td>{% if not has_profile %}<span class="muted" title="Add your profile to score fit">—</span>{% elif job.fit_score is not none %}<span class="badge band-{{ job.fit_band }}">{{ job.fit_score }} · {{ job.fit_band }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+  <td class="muted" title="{{ job.created_at }} UTC">{{ job.created_at | humandate }}</td>
+  <td class="col-actions">
+    <div class="row-menu" data-row-menu>
+      <button type="button" class="btn-icon sm row-menu-trigger" data-row-menu-trigger
+              title="Job actions — interview, edit, delete" aria-label="Job actions"
+              aria-haspopup="true" aria-expanded="false">{{ icon('ellipsis', 16) }}</button>
+      <div class="row-menu-panel" role="menu" hidden>
+        {% if job.extract_status == 'error' %}
+        <button type="button" role="menuitem" class="row-menu-item"
+                hx-post="/app/jobs/{{ job.public_id }}/reextract?render=row"
+                hx-target="closest tr" hx-swap="outerHTML">{{ icon('rotate-cw', 14) }} Retry extraction</button>
+        {% elif job.extract_status == 'ready' %}
+        <form method="post" action="/app/interviews">
+          <input type="hidden" name="job_id" value="{{ job.public_id }}">
+          <input type="hidden" name="count" value="10">
+          <button type="submit" role="menuitem" class="row-menu-item">{{ icon('mic', 14) }} Start interview</button>
+        </form>
+        {% endif %}
+        <a role="menuitem" class="row-menu-item" href="/app/jobs/{{ job.public_id }}">{{ icon('square-pen', 14) }} Edit job</a>
+        <button type="button" role="menuitem" class="row-menu-item danger"
+                hx-post="/app/jobs/{{ job.public_id }}/delete"
+                hx-target="#job-{{ job.public_id }}" hx-swap="outerHTML"
+                hx-confirm="Delete this job? Its fit analysis, questions, interview sessions, study guides and tracking are all removed. This can't be undone.">{{ icon('trash-2', 14) }} Delete job</button>
+      </div>
+    </div>
+  </td>
+</tr>

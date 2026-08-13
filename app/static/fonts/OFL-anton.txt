@@ -1,0 +1,6 @@
+anton.woff2 — Anton, by Vernon Adams.
+Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont.git)
+
+Licensed under the SIL Open Font License, Version 1.1.
+The full OFL license text is available at https://openfontlicense.org
+(and matches the OFL text distributed alongside the Geist fonts in this directory).

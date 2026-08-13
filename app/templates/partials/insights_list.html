@@ -1,0 +1,62 @@
+{% if status == 'running' %}
+<div class="card working" role="status" aria-busy="true" hx-get="/app/insights/list" hx-trigger="every 2s" hx-target="#insights-area" hx-swap="innerHTML">
+  <p><span class="spinner" aria-hidden="true"></span> Analyzing across your jobs…</p>
+</div>
+{% elif status == 'error' %}
+<div class="card">
+  <p class="error-text">Insight generation failed: {{ error }}</p>
+  <button class="primary" hx-post="/app/insights/refresh" hx-target="#insights-area" hx-swap="innerHTML">Retry</button>
+</div>
+{% elif not insights %}
+<div class="card">
+  <p class="muted">No insights yet. They generate automatically when you add jobs, or refresh now.</p>
+  <button class="primary" hx-post="/app/insights/refresh" hx-target="#insights-area" hx-swap="innerHTML">Analyze my jobs</button>
+</div>
+{% else %}
+{% set counts = {'gap': insights | selectattr('kind', 'equalto', 'gap') | list | length,
+                 'strength': insights | selectattr('kind', 'equalto', 'strength') | list | length,
+                 'sector': insights | selectattr('kind', 'equalto', 'sector') | list | length} %}
+{% if stale %}
+<div class="card stale-cta" role="status">
+  <div>
+    <strong>✨ New insights are waiting!</strong>
+    <p class="muted">You've made progress since this analysis — refresh to see what changed.</p>
+  </div>
+  <button class="primary" hx-post="/app/insights/refresh" hx-target="#insights-area" hx-swap="innerHTML">Show me what's new</button>
+</div>
+{% endif %}
+<div class="section-head">
+  <div class="pill-row" role="group" aria-label="Filter insights by kind">
+    <button type="button" class="pill active-pill" data-insight-kind="all" aria-pressed="true">all <span class="muted" data-count>{{ insights | length }}</span></button>
+    {% for k, lbl in [('gap', 'focus areas'), ('strength', 'strengths'), ('sector', 'sector fit')] %}
+    {% if counts[k] %}
+    <button type="button" class="pill" data-insight-kind="{{ k }}" aria-pressed="false">{{ lbl }} <span class="muted" data-count>{{ counts[k] }}</span></button>
+    {% endif %}
+    {% endfor %}
+  </div>
+  <div class="section-head-actions">
+    {% if analyzed_at %}<span class="muted small">analyzed {{ analyzed_at | humandate }}</span>{% endif %}
+    <button hx-post="/app/insights/refresh" hx-target="#insights-area" hx-swap="innerHTML"
+            hx-confirm="Re-analyze across all jobs? Non-dismissed insights will be replaced.">Refresh</button>
+  </div>
+</div>
+{% for i in insights %}
+{% set evidence = (i.evidence_json | from_json) if i.evidence_json else {} %}
+<section class="card insight insight-{{ i.kind }}" id="insight-{{ i.public_id }}" data-kind="{{ i.kind }}">
+  <div class="section-head insight-head">
+    <div class="pill-row">
+      <span class="badge insight-kind-{{ i.kind }}">{{ {'gap': 'focus area', 'strength': 'strength', 'sector': 'sector fit'}[i.kind] }}</span>
+      {% for s in evidence.get('skills', []) %}
+      <button type="button" class="badge subtle" data-search="{{ s }}" title="Search “{{ s }}”">{{ s }}</button>
+      {% endfor %}
+    </div>
+    <button class="danger" hx-post="/app/insights/{{ i.public_id }}/dismiss"
+            hx-target="#insight-{{ i.public_id }}" hx-swap="outerHTML">Dismiss</button>
+  </div>
+  <h2>{{ i.title }}</h2>
+  <div class="md">{{ i.body | md }}</div>
+  <div class="insight-since muted small">since {{ i.created_at | humandate }}</div>
+</section>
+{% endfor %}
+<p class="empty" data-insights-empty hidden>No insights in this section.</p>
+{% endif %}

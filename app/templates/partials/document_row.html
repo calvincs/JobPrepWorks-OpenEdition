@@ -1,0 +1,21 @@
+<tr id="doc-{{ doc.public_id }}"
+    {% if doc.status in ('uploaded', 'parsing', 'extracting') %}
+    hx-get="/app/profile/documents/{{ doc.public_id }}/row" hx-trigger="every 2s" hx-swap="outerHTML"
+    {% endif %}>
+  <td>{{ doc.filename }}</td>
+  <td>
+    <span class="badge doc-{{ doc.status }}">{{ doc.status }}</span>
+    {% if doc.error %}<div class="error-text small">{{ doc.error }}</div>{% endif %}
+    {% if live and doc.status in ('ready', 'error') %}
+    <span hx-get="/app/profile/facts-section" hx-target="#facts-section" hx-swap="outerHTML" hx-trigger="load"></span>
+    {% endif %}
+  </td>
+  <td class="muted">{{ doc.uploaded_at }}</td>
+  <td class="row-actions">
+    <button hx-post="/app/profile/documents/{{ doc.public_id }}/reextract"
+            hx-target="#doc-{{ doc.public_id }}" hx-swap="outerHTML">Re-extract</button>
+    <button class="danger" hx-post="/app/profile/documents/{{ doc.public_id }}/delete"
+            hx-target="#doc-{{ doc.public_id }}" hx-swap="outerHTML"
+            hx-confirm="Delete this document? Facts sourced only by it become unsourced; facts also in other documents keep those tags.">Delete</button>
+  </td>
+</tr>

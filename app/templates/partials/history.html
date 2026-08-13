@@ -1,0 +1,50 @@
+{# Session-history table, shared by /interviews (interviews) and /study (drills).
+   focus='topic' renders drill rows (label + score); otherwise interview rows. #}
+{% macro history_row(s, focus) %}
+<tr id="session-{{ s.public_id }}">
+  <td><a href="{{ '/app/study/practice/' if focus == 'topic' else '/app/interviews/' }}{{ s.public_id }}">
+      {%- if focus == 'topic' %}{{ s.label or 'Study drill' }}
+      {%- elif s.scope == 'mixer' %}Multi-job session
+      {%- elif s.scope == 'global' %}Global session
+      {%- else %}{{ s.job_title or 'Session' }}{% endif -%}</a>
+      {% if s.scope in ('study', 'job') and s.job_company %}<span class="muted">· {{ s.job_company }}</span>{% endif %}
+      {% if s.scope in ('mixer', 'global') %}<span class="badge subtle">{{ 'multi-job' if s.scope == 'mixer' else s.scope }}</span>{% endif %}</td>
+  <td><span class="badge sess-{{ s.status }}">{{ s.status }}</span></td>
+  <td class="muted">{{ s.answered }}/{{ s.total }}</td>
+  <td>{% if s.avg_score is not none %}<span class="score-chip s{{ s.avg_score | round | int }}">{{ s.avg_score }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+  <td class="muted">{{ s.started_at }}</td>
+  <td class="row-actions">
+    <button class="danger btn-icon sm" title="Delete session" aria-label="Delete session"
+            hx-post="/app/interviews/{{ s.public_id }}/delete"
+            hx-target="#session-{{ s.public_id }}" hx-swap="outerHTML"
+            hx-confirm="Delete this session and its answers? This can't be undone.">{{ icon('trash-2', 14) }}</button>
+  </td>
+</tr>
+{% endmacro %}
+
+{# Pass base_url (+ sort/dir) to make the headers sortable — keys must exist
+   in interviews_service.SESSION_SORT_COLUMNS; without it, plain headers. #}
+{% macro history_table(sessions, first_col, focus, empty, base_url=None, sort=None, dir=None) %}
+{% if sessions %}
+{% from "partials/sort_th.html" import sort_th %}
+<table>
+  <thead><tr>
+    {% if base_url %}
+      {{ sort_th(base_url, 'topic', first_col, 'asc', sort, dir) }}
+      {{ sort_th(base_url, 'status', 'Status', 'asc', sort, dir) }}
+      {{ sort_th(base_url, 'progress', 'Progress', 'desc', sort, dir) }}
+      {{ sort_th(base_url, 'score', 'Score' if focus == 'topic' else 'Avg score', 'desc', sort, dir) }}
+      {{ sort_th(base_url, 'started', 'Started', 'desc', sort, dir) }}
+    {% else %}
+      <th>{{ first_col }}</th><th>Status</th><th>Progress</th><th>{{ 'Score' if focus == 'topic' else 'Avg score' }}</th><th>Started</th>
+    {% endif %}
+    <th></th>
+  </tr></thead>
+  <tbody>
+    {% for s in sessions %}{{ history_row(s, focus) }}{% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">{{ empty }}</p>
+{% endif %}
+{% endmacro %}

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Interview · JobPrep Works{% endblock %}
+{% block content %}
+{% import "partials/thread_macros.html" as thread %}
+<p class="breadcrumb"><a href="{{ '/app/study' if session.scope == 'study' else '/app/interviews' }}">← {{ 'Study' if session.scope == 'study' else 'Interviews' }}</a></p>
+<h1>{% if session.scope == 'mixer' %}Multi-job interview{% elif session.scope == 'global' %}Global interview{% elif session.scope == 'study' %}Study drill{% if session.label %}: {{ session.label }}{% endif %}{% if session.job_company %} <span class="muted">at {{ session.job_company }}</span>{% endif %}{% else %}Interview{% if session.job_title %}: {{ session.job_title }}{% if session.job_company %} <span class="muted">at {{ session.job_company }}</span>{% endif %}{% endif %}{% endif %}</h1>
+
+{% if session.setup_status != 'ready' %}
+{% include "partials/session_setup.html" %}
+{% else %}
+{% if session.scope != 'study' %}
+{# A study drill is one question; a running counter/meter is just noise there. #}
+<div class="pill-row">
+  <span class="badge sess-{{ session.status }}">{{ session.status }}</span>
+  {% with total = answers | length %}{% include "partials/session_progress.html" %}{% endwith %}
+</div>
+{% endif %}
+
+{% if session.status == 'active' %}
+  {% if current %}
+  <div id="question-area">
+    {% with total = answers | length %}
+    {% include "partials/question_card.html" %}
+    {% endwith %}
+  </div>
+  {% if session.scope != 'study' %}
+  {# A study drill is a single question — nothing to "finish early". #}
+  <form method="post" action="/app/interviews/{{ session.public_id }}/finish" class="finish-form"
+        data-confirm="End this session now? Answered questions keep their grades.">
+    <button type="submit" class="danger">Finish early</button>
+  </form>
+  {% endif %}
+  {% else %}
+  {# All answered but session not closed (e.g. page reload race) — offer finish #}
+  <section class="card">
+    <p>All questions answered.</p>
+    <form method="post" action="/app/interviews/{{ session.public_id }}/finish">
+      <button type="submit" class="primary">Finish session</button>
+    </form>
+  </section>
+  {% endif %}
+
+{% else %}
+  <div id="assessment-area">
+    {% include "partials/assessment.html" %}
+  </div>
+
+  <section class="card">
+    <h2>{{ 'Your drill' if session.scope == 'study' else 'Transcript' }}</h2>
+    {% for a in answers %}
+    <div class="transcript-item">
+      <div class="thread">
+        {{ thread.q_turn(a.question_text, 'Question · ' ~ a.question_type ~ ' · ' ~ a.skill_display) }}
+        {% if a.answer_text %}
+        {{ thread.you_turn(a.answer_text) }}
+        {% if a.grade_status == 'ready' %}
+        {{ thread.coach_turn(a.score, a.feedback) }}
+        {% elif a.grade_status == 'error' %}
+        <div class="turn"><p class="error-text small">Grading failed: {{ a.grade_error }}</p></div>
+        {% endif %}
+        {% if a.followup_question %}
+        {{ thread.followup_divider() }}
+        {{ thread.q_turn(a.followup_question) }}
+        {% if a.followup_answer %}{{ thread.you_turn(a.followup_answer) }}{% endif %}
+        {% if a.followup_status == 'ready' %}
+        {{ thread.coach_turn(a.followup_score, a.followup_feedback, thread.delta_of(a.score, a.followup_score) | trim) }}
+        {% elif a.followup_status == 'awaiting' %}
+        <div class="turn"><p class="muted small">Follow-up not answered.</p></div>
+        {% endif %}
+        {% endif %}
+        {% else %}
+        <div class="turn"><p class="muted small">Not answered.</p></div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+
+  {% if session.scope == 'study' %}
+  {# Coming back to a finished drill: practice a fresh variation on the same
+     topic, or remove the drill. #}
+  <div class="feedback-actions">
+    <form method="post" action="/app/study/practice/{{ session.public_id }}/again">
+      <button type="submit" class="primary">{{ icon('rotate-cw', 15) }} Practice another</button>
+    </form>
+    <a class="btn" href="/app/study">Back to study</a>
+    <form method="post" action="/app/interviews/{{ session.public_id }}/delete"
+          data-confirm="Delete this drill and its answer? This can't be undone.">
+      <button type="submit" class="danger">{{ icon('trash-2', 14) }} Delete drill</button>
+    </form>
+  </div>
+  {% endif %}
+{% endif %}
+{% endif %}
+{% endblock %}

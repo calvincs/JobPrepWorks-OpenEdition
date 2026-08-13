@@ -1,0 +1,23 @@
+{# oob is set only by the /next partial response — the full-page render
+   includes this card too, where a second badge would be a duplicate. #}
+{% if oob %}{% include "partials/session_progress.html" %}{% endif %}
+<section class="card question-card">
+  <div class="session-progress">
+    <p class="muted small">Question {{ answered_count + 1 }} of {{ total }}</p>
+    <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="{{ total }}"
+         aria-valuenow="{{ answered_count }}" aria-label="Session progress"
+         style="--pct: {{ (answered_count / total * 100) | round | int if total else 0 }}%"></div>
+  </div>
+  <div class="pill-row">
+    <span class="badge subtle">{{ current.question_type }}</span>
+    <span class="badge subtle">{{ current.skill_display }}</span>
+    <span class="badge diff-{{ current.difficulty }}">{{ current.difficulty }}</span>
+  </div>
+  <p class="question-text">{{ current.question_text }}</p>
+  <form hx-post="/app/interviews/{{ session.public_id }}/answer" hx-target="#question-area" hx-swap="innerHTML"
+        class="stacked-form">
+    <textarea name="answer_text" rows="6" required autofocus
+              placeholder="Answer as you would out loud in an interview…"></textarea>
+    <button type="submit" class="primary">Submit answer</button>
+  </form>
+</section>

@@ -1,0 +1,36 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Secrets — API keys live here
+.env
+.env.*
+!.env.example
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Your data: the SQLite database and every uploaded document.
+# Never commit this — it is your résumé, your job list, and your answers.
+data/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log

@@ -1,0 +1,56 @@
+{% if not has_profile and job.extract_status not in ('pending', 'extracting') %}
+<div class="card">
+  <h2>Add your background first</h2>
+  <p class="muted">Your pitch is built from <em>your</em> evidenced facts — but there's nothing on your profile yet. Upload a resume or add facts, then come back to write it.</p>
+  <a class="btn" href="/app/profile">{{ icon('user-round', 14) }} Go to Profile</a>
+</div>
+{% elif job.pitch_status == 'running' or job.extract_status in ('pending', 'extracting') %}
+<div class="card working" role="status" aria-busy="true" hx-get="/app/jobs/{{ job.public_id }}/tab/pitch" hx-target="#tab-content" hx-trigger="every 2s">
+  <p><span class="spinner" aria-hidden="true"></span>
+    {% if job.extract_status in ('pending', 'extracting') %}Waiting for extraction…{% else %}Writing your pitch…{% endif %}
+  </p>
+</div>
+{% elif job.pitch_status == 'error' %}
+<div class="card">
+  <p class="error-text">Pitch generation failed: {{ job.pitch_error }}</p>
+  <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/pitch" hx-target="#tab-content">Retry</button>
+</div>
+{% elif not pitch %}
+<div class="card">
+  <h2>Your pitch for this role</h2>
+  <p class="muted">Three ready-to-speak answers to "tell me about yourself" — 15 seconds, 30 seconds, and 2 minutes — built from your evidenced facts and aimed at this job's must-haves.</p>
+  {% if not fit %}
+  <p class="muted small">Tip: run the fit analysis first — the pitch leans on its evidence and steers around its gaps.</p>
+  {% endif %}
+  {% if job.extract_status == 'ready' %}
+  <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/pitch" hx-target="#tab-content">
+    {{ icon('mic', 14) }} Write my pitch
+  </button>
+  {% endif %}
+</div>
+{% else %}
+{% set p = pitch.content_json | from_json %}
+<section class="card">
+  <h2>15 seconds</h2>
+  <div class="md">{{ p.pitch_15s | md }}</div>
+</section>
+<section class="card">
+  <h2>30 seconds</h2>
+  <div class="md">{{ p.pitch_30s | md }}</div>
+</section>
+<section class="card">
+  <h2>2 minutes</h2>
+  <div class="md">{{ p.pitch_2min | md }}</div>
+</section>
+<section class="card">
+  <h2>Talking points</h2>
+  <ul class="finding-list">
+    {% for t in p.talking_points %}<li class="md">{{ t | md }}</li>{% endfor %}
+  </ul>
+</section>
+<section class="card">
+  <p class="muted small">Version {{ pitch.version }} · {{ pitch.created_at }}</p>
+  <button hx-post="/app/jobs/{{ job.public_id }}/pitch" hx-target="#tab-content"
+          hx-confirm="Rewrite the pitch from your current profile and fit analysis?">Regenerate</button>
+</section>
+{% endif %}

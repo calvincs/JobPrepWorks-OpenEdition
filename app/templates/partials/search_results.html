@@ -1,0 +1,72 @@
+{% if not q %}
+<p class="empty search-hint">Search across your jobs, profile facts, requirements, questions, and answers.</p>
+{% elif total == 0 %}
+<p class="empty">No matches for “{{ q }}”. Try a different term.</p>
+{% else %}
+<p class="muted small search-count">{{ total }} result{{ '' if total == 1 else 's' }} for “{{ q }}”</p>
+
+{% if results.jobs %}
+<section class="search-group">
+  <h3 class="search-group-head">Jobs</h3>
+  <ul class="search-list">
+    {% for j in results.jobs %}
+    <li><a href="/app/jobs/{{ j.public_id }}">{{ j.title or 'Untitled job' }}{% if j.company %} <span class="muted">· {{ j.company }}</span>{% endif %}</a>
+        <span class="badge status-{{ j.status }}">{{ j.status }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if results.facts %}
+<section class="search-group">
+  <h3 class="search-group-head">Profile facts</h3>
+  <ul class="search-list">
+    {% for f in results.facts %}
+    <li><a href="/app/profile"><strong>{{ f.name }}</strong></a> <span class="badge subtle">{{ f.kind }}</span>
+        {% if f.detail %}<div class="muted small">{{ f.detail }}</div>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if results.requirements %}
+<section class="search-group">
+  <h3 class="search-group-head">Job requirements</h3>
+  <ul class="search-list">
+    {% for r in results.requirements %}
+    <li><a href="/app/jobs/{{ r.job_pid }}"><strong>{{ r.skill_display }}</strong>
+        <span class="muted">· {{ r.job_title or 'job' }}{% if r.job_company %} — {{ r.job_company }}{% endif %}</span></a>
+        <span class="badge {{ 'req-must' if r.kind == 'must' else 'subtle' }}">{{ r.kind }}</span>
+        {% if r.evidence_text %}<div class="muted small">{{ r.evidence_text }}</div>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if results.questions %}
+<section class="search-group">
+  <h3 class="search-group-head">Interview questions</h3>
+  <ul class="search-list">
+    {% for qq in results.questions %}
+    <li>{% if qq.job_pid %}<a href="/app/jobs/{{ qq.job_pid }}">{{ qq.text }}</a>{% else %}{{ qq.text }}{% endif %}
+        <div class="pill-row"><span class="badge subtle">{{ qq.skill_display }}</span>
+        <span class="badge diff-{{ qq.difficulty }}">{{ qq.difficulty }}</span>
+        {% if qq.job_title %}<span class="badge subtle">{{ qq.job_title }}</span>{% endif %}</div></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if results.answers %}
+<section class="search-group">
+  <h3 class="search-group-head">Your answers &amp; feedback</h3>
+  <ul class="search-list">
+    {% for a in results.answers %}
+    <li><a href="/app/interviews/{{ a.session_pid }}"><div class="muted small">{{ a.question_text }}</div>
+        {{ (a.answer_text or '') | truncate(160) }}</a>
+        {% if a.score %}<span class="score-chip s{{ a.score }}">{{ a.score }}/5</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endif %}

@@ -1,0 +1,166 @@
+{# Pulse tab: employer research cached per company (see services/pulse.py).
+   In-flight states self-poll the tab and just re-read the row. All gating (TTL,
+   daily limit, whether search is configured at all) is server-enforced —
+   hiding a button here is UX, not security. #}
+{% if not pulse_available %}
+  <div class="card">
+    <p>Company research needs web search, and none is configured.</p>
+    <p class="muted small">
+      With <code>LLM_PROVIDER</code> set to anthropic, openai, or openrouter the model
+      searches the web itself and this works out of the box. With a local model
+      (Ollama, llama.cpp) set <code>TAVILY_API_KEY</code>, <code>BRAVE_API_KEY</code>, or
+      <code>SEARXNG_URL</code> in your <code>.env</code> and restart —
+      see <a href="/app/account">Settings</a> for what's active now.
+    </p>
+  </div>
+
+{% elif not job.company %}
+  {% if job.extract_status in ('pending', 'extracting') %}
+  <div class="card working" role="status" aria-busy="true"
+       hx-get="/app/jobs/{{ job.public_id }}/tab/pulse" hx-target="#tab-content" hx-trigger="every 2s">
+    <p><span class="spinner" aria-hidden="true"></span> Waiting for the posting to finish extracting…</p>
+  </div>
+  {% else %}
+  <div class="card"><p class="muted">No company was identified on this posting, so there's nothing to research.</p></div>
+  {% endif %}
+
+{% elif pulse is none %}
+  <div class="card">
+    <p>No research yet for <strong>{{ job.company }}</strong>.</p>
+    {% if pulse_left > 0 %}
+    <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/pulse" hx-target="#tab-content">
+      {{ icon('search', 14) }} Investigate {{ job.company }}</button>
+    <p class="muted small">{{ pulse_left }} company lookup{{ '' if pulse_left == 1 else 's' }} left today. Companies already researched are always free.</p>
+    {% else %}
+    <p class="muted">You've reached today's research limit (<code>PULSE_DAILY_LIMIT</code>). Try again tomorrow — companies already researched stay available.</p>
+    {% endif %}
+  </div>
+
+{% elif pulse.status in ('pending', 'submitting') and not pulse_data %}
+  <div class="card working" role="status" aria-busy="true"
+       hx-get="/app/jobs/{{ job.public_id }}/tab/pulse" hx-target="#tab-content" hx-trigger="every 5s">
+    <p><span class="spinner" aria-hidden="true"></span> Investigating {{ pulse.display_name }} — checking employee reviews and recent news. This usually takes a few minutes; feel free to leave and come back.</p>
+  </div>
+
+{% elif pulse.status == 'error' and not pulse_data %}
+  <div class="card">
+    <p class="error-text">{{ pulse.error }}</p>
+    {% if pulse_left > 0 %}
+    <button class="primary" hx-post="/app/jobs/{{ job.public_id }}/pulse" hx-target="#tab-content">Try again</button>
+    {% else %}
+    <p class="muted small">Daily research limit reached — retry tomorrow.</p>
+    {% endif %}
+  </div>
+
+{% else %}
+  {% set p = pulse_data %}
+  {% if pulse.status in ('pending', 'submitting') %}
+  <div class="card working" role="status" aria-busy="true"
+       hx-get="/app/jobs/{{ job.public_id }}/tab/pulse" hx-target="#tab-content" hx-trigger="every 5s">
+    <p><span class="spinner" aria-hidden="true"></span> Refreshing this pulse — showing the previous data meanwhile.</p>
+  </div>
+  {% elif pulse.status == 'error' %}
+  <div class="card">
+    <p class="error-text">{{ pulse.error }} Showing the previous data.</p>
+    {% if pulse_left > 0 %}
+    <button hx-post="/app/jobs/{{ job.public_id }}/pulse" hx-target="#tab-content">Try again</button>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <section class="card">
+    <div class="section-head">
+      <h2>{{ p.company }} <span class="muted">pulse</span></h2>
+      {% if pulse.status == 'ready' %}
+        {% if pulse_stale and pulse_left > 0 %}
+        <button hx-post="/app/jobs/{{ job.public_id }}/pulse" hx-target="#tab-content"
+                hx-confirm="Re-research {{ p.company }}? This uses one of today's {{ pulse_left }} remaining lookups.">
+          {{ icon('rotate-cw', 14) }} Refresh</button>
+        {% elif pulse_stale %}
+        <span class="muted small">Refresh available — daily limit reached, try tomorrow</span>
+        {% elif pulse_refresh_wait %}
+        <span class="muted small">Refresh unlocks in {{ pulse_refresh_wait }}</span>
+        {% else %}
+        <span class="muted small">Refresh unlocks {{ pulse_ttl_days }} days after the last update</span>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% if p.limited_data %}
+    <p class="muted">⚠️ Limited data — treat this as a sketch, not a consensus.</p>
+    {% endif %}
+    <p>{{ p.pulse_summary }}</p>
+    <p class="muted small">
+      {% if p.ratings.overall is not none %}Rated {{ p.ratings.overall }}/5{% if p.ratings.source %} on {{ p.ratings.source }}{% endif %}{% if p.ratings.would_recommend_pct is not none %} · {{ p.ratings.would_recommend_pct }}% would recommend{% endif %} · {% endif %}
+      Updated {{ pulse.last_updated | humandate }}
+    </p>
+  </section>
+
+  {% if p.strengths %}
+  <section class="card">
+    <h2>Strengths</h2>
+    <ul>
+      {% for it in p.strengths %}
+      <li><strong>{{ it.theme }}</strong>{% if it.detail %} — {{ it.detail }}{% endif %}
+        {% if it.source %} <a class="muted small" href="{{ it.source.url }}" target="_blank" rel="noopener nofollow">{{ it.source.outlet or 'source' }} ↗</a>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if p.complaints %}
+  <section class="card">
+    <h2>Complaints</h2>
+    <ul>
+      {% for it in p.complaints %}
+      <li><strong>{{ it.theme }}</strong>{% if it.detail %} — {{ it.detail }}{% endif %}
+        {% if it.source %} <a class="muted small" href="{{ it.source.url }}" target="_blank" rel="noopener nofollow">{{ it.source.outlet or 'source' }} ↗</a>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if p.direction.summary or p.direction.recent_events %}
+  <section class="card">
+    <h2>Direction &amp; recent news</h2>
+    {% if p.direction.summary %}<p>{{ p.direction.summary }}</p>{% endif %}
+    {% if p.direction.recent_events %}
+    <ul>
+      {% for ev in p.direction.recent_events %}
+      <li>{% if ev.date %}<span class="muted">{{ ev.date }}</span> — {% endif %}{{ ev.event }}
+        {% if ev.source %} <a class="muted small" href="{{ ev.source.url }}" target="_blank" rel="noopener nofollow">{{ ev.source.outlet or 'source' }} ↗</a>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if p.caveats %}
+  <section class="card">
+    <h3 class="fact-kind">Caveats</h3>
+    <ul>{% for c in p.caveats %}<li class="muted">{{ c }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  {% if p.sources %}
+  <section class="card">
+    <h3 class="fact-kind">Sources</h3>
+    <ul>
+      {% for s in p.sources %}
+      <li class="small"><a href="{{ s.url }}" target="_blank" rel="noopener nofollow">{{ s.title or s.url }}</a>{% if s.outlet %} <span class="muted">· {{ s.outlet }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <p class="muted small pulse-disclaimer">
+    <strong>About this report:</strong> this pulse is an AI-generated summary of
+    publicly available, third-party sources (linked above). The statements,
+    ratings, and opinions it reflects belong to their original authors and
+    publishers — they are not the views, claims, or endorsements of JobPrep
+    Works, and they may be incomplete, outdated, or wrong. We are not
+    affiliated with {{ p.company }} or any company researched here, and make no
+    warranty as to accuracy or completeness. All company names and trademarks
+    are the property of their respective owners. Provided for your personal
+    research only — verify anything important against the original sources.
+  </p>
+{% endif %}
