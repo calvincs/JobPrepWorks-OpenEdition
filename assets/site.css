@@ -162,6 +162,10 @@ a { color: inherit; }
   font: 600 16px/1 var(--font-sans);
   text-decoration: none;
   color: var(--ink);
+  /* Explicit, because this is used on <button> as well as <a>: a button
+     without it picks up the UA's grey buttonface and stops looking ghosted. */
+  background: transparent;
+  cursor: pointer;
   border: 1px solid var(--border-strong);
   transition: border-color 0.15s ease;
 }
@@ -534,3 +538,46 @@ p code, li code {
 }
 /* The thumbnails are links, so show the affordance for what they now do. */
 .shot a, .step figure a { cursor: zoom-in; }
+
+/* ── analytics notice ───────────────────────────────────────────────────────
+   Built by consent.js. Same dark band as the nav, so it reads as part of the
+   page furniture rather than an interstitial. */
+.cookie-banner {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 60;
+  color: #e9edf3;
+  background:
+    radial-gradient(520px 120% at 0% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+    linear-gradient(180deg, #1d242e, #12161c);
+  border-top: 1px solid #2a323d;
+  box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.42);
+  animation: cookie-rise 0.32s ease;
+}
+.cookie-banner-in {
+  max-width: 1240px;
+  margin-inline: auto;
+  padding: clamp(15px, 2.4vw, 22px) clamp(20px, 4vw, 48px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(14px, 3vw, 32px);
+  flex-wrap: wrap;
+}
+.cookie-copy {
+  margin: 0;
+  max-width: 74ch;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: #c3ccd8;
+}
+.cookie-copy b { color: #e9edf3; font-weight: 650; }
+.cookie-actions { display: flex; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
+.cookie-actions .btn.small, .cookie-actions .btn-ghost.small { padding: 10px 16px; font-size: 14px; }
+.cookie-banner .btn-ghost { color: #e9edf3; border-color: #3a4552; }
+.cookie-banner .btn-ghost:hover { border-color: var(--accent); }
+/* Focused programmatically (tabindex -1) only to announce the dialog; the
+   buttons keep their own focus rings. */
+.cookie-banner:focus { outline: none; }
+@keyframes cookie-rise { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cookie-banner { animation: none; } }

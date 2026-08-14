@@ -3,6 +3,20 @@
 <head>
   <meta charset="utf-8">
 
+  <!-- Analytics opt-out, read before the tag loads. Google's kill switch is a
+       window flag gtag.js checks as it initialises, so a visitor who opted out
+       has to have it set here — flipping it later would still let the first
+       pageview through. -->
+  <script>
+    (function () {
+      try {
+        if (document.cookie.indexOf('jpw_analytics=off') !== -1) {
+          window['ga-disable-G-7D1G40BK7R'] = true;
+        }
+      } catch (e) { /* cookies blocked entirely — nothing to opt out of */ }
+    })();
+  </script>
+
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-7D1G40BK7R"></script>
   <script>
@@ -29,6 +43,7 @@
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="assets/site.css">
   <script src="assets/site.js" defer></script>
+  <script src="assets/consent.js" defer></script>
 </head>
 <body>
 
@@ -262,7 +277,7 @@ scripts/run                   <span class="c"># → http://127.0.0.1:8000</span>
 
         <ul class="facts">
           <li><b>Your data stays put</b>One SQLite file and one uploads directory, both inside the project. Back it up by copying the folder; reset by deleting it.</li>
-          <li><b>The app phones nobody</b>No analytics, no crash reporting, no accounts in the software you run. Its only outbound calls are the model provider you chose and the searches Company Pulse makes when you ask it to. <span class="muted">(This website uses Google Analytics; the app itself does not.)</span></li>
+          <li><b>Nothing phones home</b>No analytics, no crash reporting, no accounts. The only outbound calls are the model provider you chose and the searches Company Pulse makes when you ask it to.</li>
           <li><b>Safe on a browsing machine</b>Cross-site writes are refused, the CSP is strict, and model output is sanitised before anything renders as a link.</li>
           <li><b>Set up by an agent</b>An <code>llm.txt</code> in the repo gives a coding agent the install, verification, and troubleshooting steps in its own terms.</li>
         </ul>
@@ -317,6 +332,7 @@ scripts/run                   <span class="c"># → http://127.0.0.1:8000</span>
     <p class="micro">JobPrep Works — Open Edition is free software under the MIT licence. Clone it, change it, ship your own. No warranty, and no affiliation with any company it researches.</p>
     <p class="micro">Source, issues, and releases:<br>
       <a class="repo-url" href="https://github.com/calvincs/JobPrepWorks-OpenEdition">github.com/calvincs/JobPrepWorks-OpenEdition</a></p>
+    <p class="micro"><a href="#" data-analytics-settings>Analytics settings</a></p>
     <p class="micro">Vendored assets, unmodified and permissively licensed: <a href="https://htmx.org">htmx</a> (0BSD), <a href="https://lucide.dev">Lucide</a> icons (ISC), and the Geist and Anton typefaces (SIL Open Font License).</p>
     <div class="cta-row">
       <a class="btn-ghost" href="https://github.com/calvincs/JobPrepWorks-OpenEdition">Source on GitHub</a>
