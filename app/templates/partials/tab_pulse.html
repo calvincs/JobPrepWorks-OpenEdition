@@ -71,17 +71,15 @@
   <section class="card">
     <div class="section-head">
       <h2>{{ p.company }} <span class="muted">pulse</span></h2>
+      {# No cooldown: refresh whenever you want. The daily allowance is the only
+         bound, and it is re-checked server-side when the button is pressed. #}
       {% if pulse.status == 'ready' %}
-        {% if pulse_stale and pulse_left > 0 %}
+        {% if pulse_left > 0 %}
         <button hx-post="/app/jobs/{{ job.public_id }}/pulse" hx-target="#tab-content"
-                hx-confirm="Re-research {{ p.company }}? This uses one of today's {{ pulse_left }} remaining lookups.">
+                hx-confirm="Re-research {{ p.company }}? This runs fresh web searches and uses one of today's {{ pulse_left }} remaining lookups.">
           {{ icon('rotate-cw', 14) }} Refresh</button>
-        {% elif pulse_stale %}
-        <span class="muted small">Refresh available — daily limit reached, try tomorrow</span>
-        {% elif pulse_refresh_wait %}
-        <span class="muted small">Refresh unlocks in {{ pulse_refresh_wait }}</span>
         {% else %}
-        <span class="muted small">Refresh unlocks {{ pulse_ttl_days }} days after the last update</span>
+        <span class="muted small">Daily research limit reached — refresh tomorrow</span>
         {% endif %}
       {% endif %}
     </div>

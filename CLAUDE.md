@@ -178,9 +178,10 @@ because server-side web search is provider-specific. Two paths:
 `config.search_backend_name()` resolves which, and `pulse_available()` decides
 whether the tab renders at all. `LLM_PROVIDER=mock` short-circuits with
 `CANNED_PULSE`. Pulses are cached globally by normalized company name
-(`canonical_company()` in `app/text.py`), held `PULSE_TTL_DAYS`, and metered per
-UTC day in `pulse_requests` (`PULSE_DAILY_LIMIT`) — both enforced server-side,
-never just in the UI. The `error` column is **user-visible product copy**
+(`canonical_company()` in `app/text.py`) and metered per UTC day in
+`pulse_requests` (`PULSE_DAILY_LIMIT`), enforced server-side, never just in the
+UI. There is deliberately **no refresh cooldown** — the user pays for their own
+searches, so currency is their call; the daily allowance is the only bound. The `error` column is **user-visible product copy**
 (`USER_ERROR_*` constants only — exception text and internals go to the log).
 `validate_pulse()` runs on every path, including schema-validated output,
 because a schema guarantees types but not that a `url` field holds a safe URL.

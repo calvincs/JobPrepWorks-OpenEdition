@@ -3,7 +3,7 @@
 Everything comes from the environment (or a `.env` file at the repo root).
 There are no accounts, no billing, and no hosted services: the app runs on your
 machine, talks to whichever LLM provider you configure, and stores everything
-in your own Postgres database. `.env.example` documents every knob below.
+in one local SQLite file. `.env.example` documents every knob below.
 """
 
 import os
@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-# Uploaded files live on disk under the data dir; the database is Postgres.
+# Uploaded files live on disk under the data dir, next to the database.
 DATA_DIR = Path(os.getenv("JOBPREP_DATA_DIR", BASE_DIR / "data"))
 UPLOADS_DIR = DATA_DIR / "uploads"
 
@@ -176,10 +176,10 @@ class Settings:
     research_timeout_s: float = field(
         default_factory=lambda: float(os.getenv("RESEARCH_TIMEOUT_S", "300"))
     )
-    # Pulses are cached by normalized company name and held this many days
-    # before a refresh is allowed. The daily limit bounds how many
-    # search-triggering lookups run in one UTC day (cache hits are free).
-    pulse_ttl_days: int = field(default_factory=lambda: int(os.getenv("PULSE_TTL_DAYS", "3")))
+    # Pulses are cached by normalized company name, so reopening the same
+    # employer is free. There is deliberately no refresh cooldown — you pay for
+    # your own searches — so this daily allowance is the only bound on how many
+    # search-triggering lookups run in one UTC day. 0 = unlimited.
     pulse_daily_limit: int = field(default_factory=lambda: int(os.getenv("PULSE_DAILY_LIMIT", "25")))
     # Seconds between poller sweeps that pick up queued or stranded research
     # (0 disables the poller — tests set 0 and call pulse.sweep() directly).

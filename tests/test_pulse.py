@@ -1,4 +1,4 @@
-"""Company Pulse: normalized-name cache, daily metering, TTL-gated refresh,
+"""Company Pulse: normalized-name cache, daily metering, on-demand refresh,
 the crash-safe submit/sweep lifecycle, and both research paths — the app-side
 search used by local models, and a provider that searches natively."""
 
@@ -7,7 +7,7 @@ import pytest
 from app.config import settings
 from app.db import get_conn
 from app.services import pulse
-from app.text import canonical_company, fuzzy_duration
+from app.text import canonical_company
 
 
 def _row(canon="acme"):
@@ -112,47 +112,57 @@ def test_cache_hit_still_served_at_limit(scalar):
     assert pid is not None and created is False
 
 
-# ── Refresh gating (TTL is enforced server-side) ─────────────────────────────
+# ── Refresh is on demand (no cooldown; the daily allowance is the only bound) ─
 
 
-def test_refresh_rejected_inside_ttl(scalar):
+def test_refresh_allowed_immediately(scalar):
+    """A pulse minted seconds ago can be refreshed right now. You are paying
+    for your own searches, so how current you want the read to be is your
+    call — the app doesn't hold a cooldown over you."""
     pulse.kickoff("Acme Corp", 1)
-    outcome, pid = pulse.request_pulse("Acme Corp", 1)
-    assert outcome == "fresh"
-    assert scalar("SELECT status FROM company_pulses WHERE id = ?", pid) == "ready"
-    assert scalar("SELECT COUNT(*) FROM pulse_requests") == 1  # not charged
-
-
-def test_refresh_allowed_and_metered_when_stale(scalar):
-    pulse.kickoff("Acme Corp", 1)
-    row = _row()
-    _backdate(row["id"], last_updated="2020-01-01 00:00:00")
     outcome, pid = pulse.request_pulse("Acme Corp", 1)
     assert outcome == "refreshing"
-    pulse.submit_pulse(pid)  # the route runs this as a background task
-    row = _row()
-    assert row["status"] == "ready"
-    assert row["last_updated"] > "2020-01-01 00:00:00"
-    assert scalar(
-        "SELECT COUNT(*) FROM pulse_requests WHERE kind = 'refresh'"
-    ) == 1
+    pulse.submit_pulse(pid)
+    assert _row()["status"] == "ready"
+    assert scalar("SELECT COUNT(*) FROM pulse_requests WHERE kind = 'refresh'") == 1
 
 
-def test_stale_refresh_blocked_at_daily_limit(scalar):
+def test_repeated_refreshes_each_spend_a_lookup(scalar):
+    """No cooldown does not mean no accounting: every refresh is metered, which
+    is what makes the daily allowance the real bound."""
     pulse.kickoff("Acme Corp", 1)
-    _backdate(_row()["id"], last_updated="2020-01-01 00:00:00")
+    for _ in range(3):
+        outcome, pid = pulse.request_pulse("Acme Corp", 1)
+        assert outcome == "refreshing"
+        pulse.submit_pulse(pid)
+    assert scalar("SELECT COUNT(*) FROM pulse_requests WHERE kind = 'refresh'") == 3
+    assert scalar("SELECT COUNT(*) FROM company_pulses") == 1  # still one cached row
+
+
+def test_refresh_blocked_at_daily_limit(scalar):
+    pulse.kickoff("Acme Corp", 1)
     _burn_daily_limit()
     outcome, _ = pulse.request_pulse("Acme Corp", 1)
     assert outcome == "limit"
     assert _row()["status"] == "ready"  # untouched
 
 
+def test_refresh_updates_the_timestamp(scalar):
+    pulse.kickoff("Acme Corp", 1)
+    _backdate(_row()["id"], last_updated="2020-01-01 00:00:00")
+    _, pid = pulse.request_pulse("Acme Corp", 1)
+    pulse.submit_pulse(pid)
+    assert _row()["last_updated"] > "2020-01-01 00:00:00"
+
+
 def test_in_flight_pulse_reports_busy(scalar):
+    """The status predicate is the claim: a refresh can't start on top of a run
+    already in flight, so a double-click never pays for two research runs."""
     pulse.kickoff("Acme Corp", 1)
     _backdate(_row()["id"], status="submitting", claimed_at=pulse._now_str())
     outcome, _ = pulse.request_pulse("Acme Corp", 1)
     assert outcome == "busy"
-    assert scalar("SELECT COUNT(*) FROM pulse_requests") == 1
+    assert scalar("SELECT COUNT(*) FROM pulse_requests") == 1  # not charged
 
 
 def test_error_pulse_can_be_retried(scalar):
@@ -497,56 +507,6 @@ def test_job_intake_triggers_pulse_and_tab_renders(client, scalar):
     assert "affiliated with Acme Corp" in resp.text
 
 
-def test_tab_hides_refresh_inside_ttl_and_shows_when_stale(client, scalar):
-    job_pid = _add_job(client)
-    resp = client.get(f"/app/jobs/{job_pid}/tab/pulse")
-    assert "Refresh unlocks" in resp.text
-    _backdate(_row()["id"], last_updated="2020-01-01 00:00:00")
-    resp = client.get(f"/app/jobs/{job_pid}/tab/pulse")
-    assert "Refresh</button>" in resp.text.replace("\n", "")
-
-
-def test_fuzzy_duration_units():
-    assert fuzzy_duration(20) == "under a minute"
-    assert fuzzy_duration(60 * 12) == "about 12 minutes"
-    assert fuzzy_duration(3600 * 3) == "about 3 hours"
-    assert fuzzy_duration(3600 * 1.1) == "about 1 hour"    # promoted, not "66 minutes"
-    assert fuzzy_duration(86400 * 0.99) == "about 1 day"   # promoted, not "24 hours"
-    assert fuzzy_duration(86400 * 2.4) == "about 2 days"
-
-
-def test_tab_countdown_shows_fuzzy_time_until_refresh(client, scalar):
-    job_pid = _add_job(client)  # fresh pulse: the full TTL remains
-    resp = client.get(f"/app/jobs/{job_pid}/tab/pulse")
-    assert f"Refresh unlocks in about {settings.pulse_ttl_days} days" in resp.text
-    # 12 hours before the window reopens → an hours-grade countdown
-    _backdate(_row()["id"],
-              last_updated=pulse._ago_str(days=settings.pulse_ttl_days, hours=-12))
-    resp = client.get(f"/app/jobs/{job_pid}/tab/pulse")
-    assert "Refresh unlocks in about 12 hours" in resp.text
-    # 30 minutes before → minutes
-    _backdate(_row()["id"],
-              last_updated=pulse._ago_str(days=settings.pulse_ttl_days, minutes=-30))
-    resp = client.get(f"/app/jobs/{job_pid}/tab/pulse")
-    assert "Refresh unlocks in about 30 minutes" in resp.text
-
-
-def test_post_pulse_inside_ttl_toast_carries_countdown(client, scalar):
-    job_pid = _add_job(client)
-    resp = client.post(f"/app/jobs/{job_pid}/pulse", headers={"HX-Request": "true"})
-    assert resp.status_code == 200
-    toast = resp.headers.get("HX-Trigger", "")
-    assert f"refresh unlocks in about {settings.pulse_ttl_days} days" in toast
-
-
-def test_post_pulse_inside_ttl_is_not_honored(client, scalar):
-    job_pid = _add_job(client)
-    before = _row()["last_updated"]
-    resp = client.post(f"/app/jobs/{job_pid}/pulse", headers={"HX-Request": "true"})
-    assert resp.status_code == 200
-    assert scalar("SELECT COUNT(*) FROM pulse_requests") == 1  # no new charge
-    assert _row()["last_updated"] == before
-
 
 def test_tab_shows_limit_message_when_quota_spent(client, scalar):
     job_pid = _add_job(client)
@@ -562,3 +522,28 @@ def test_tab_shows_limit_message_when_quota_spent(client, scalar):
     assert "research limit" in resp.text
     resp = client.post(f"/app/jobs/{job_pid}/pulse", headers={"HX-Request": "true"})
     assert scalar("SELECT COUNT(*) FROM company_pulses") == 0  # backend refused too
+
+
+def test_tab_always_offers_refresh_on_a_ready_pulse(client, scalar):
+    job_pid = _add_job(client)
+    resp = client.get(f"/app/jobs/{job_pid}/tab/pulse")
+    assert "Refresh</button>" in resp.text.replace("\n", "")
+    assert "Refresh unlocks" not in resp.text  # the cooldown copy is gone
+
+
+def test_tab_swaps_refresh_for_a_limit_note_when_spent(client, scalar):
+    job_pid = _add_job(client)
+    _burn_daily_limit()
+    resp = client.get(f"/app/jobs/{job_pid}/tab/pulse")
+    assert "Daily research limit reached" in resp.text
+    assert "Refresh</button>" not in resp.text.replace("\n", "")
+
+
+def test_post_refresh_is_honored_immediately(client, scalar):
+    job_pid = _add_job(client)
+    before = _row()["last_updated"]
+    resp = client.post(f"/app/jobs/{job_pid}/pulse", headers={"HX-Request": "true"})
+    assert resp.status_code == 200
+    assert "Refreshing the pulse" in resp.headers.get("HX-Trigger", "")
+    assert scalar("SELECT COUNT(*) FROM pulse_requests") == 2  # the add, plus this refresh
+    assert _row()["last_updated"] >= before

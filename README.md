@@ -66,7 +66,8 @@ spot with one instantly-graded question.
 
 **Research the employer.** Company Pulse pulls ratings, recurring complaints,
 and recent news from the live web, with every claim linked to its source. Where
-the evidence is thin, it says so instead of padding.
+the evidence is thin, it says so instead of padding. Refresh it whenever you
+want — there's no cooldown, since you're the one paying for the searches.
 
 **Bring it together.** A tailored résumé and a "tell me about yourself" pitch
 rewritten around a specific job's must-haves — grounded only in facts you

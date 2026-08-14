@@ -49,22 +49,6 @@ def canonical_company(s: str) -> str:
     return " ".join(words)
 
 
-def fuzzy_duration(seconds: float) -> str:
-    """A coarse human duration for 'try again later' copy: 'under a minute',
-    'about 12 minutes', 'about 3 hours', 'about 2 days'. Deliberately a single
-    rounded unit so it reads as guidance, not a deadline."""
-    minutes = round(seconds / 60)
-    if minutes < 1:
-        return "under a minute"
-    if minutes < 60:
-        return f"about {minutes} minute{'s' if minutes != 1 else ''}"
-    hours = round(seconds / 3600)
-    if hours < 24:
-        return f"about {hours} hour{'s' if hours != 1 else ''}"
-    days = round(seconds / 86400)
-    return f"about {days} day{'s' if days != 1 else ''}"
-
-
 def normalize_posting(text: str) -> str:
     """Tidy a pasted/parsed job posting for storage and display: normalize
     newlines, strip trailing whitespace per line, collapse 3+ blank lines to a

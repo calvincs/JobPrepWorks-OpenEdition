@@ -3,9 +3,10 @@
 A pulse is a structured, source-cited snapshot of an employer — ratings,
 strengths, recurring complaints, and where the company seems to be heading —
 built from web search. Pulses are cached by normalized company name (one row
-per employer, shared across your jobs) and held for ``PULSE_TTL_DAYS`` before a
-refresh is allowed, because employer reputation does not change hourly and
-every refresh costs real searches.
+per employer, shared across your jobs), so opening the same employer twice is
+free. Refreshing is always available: you pay for your own searches, so how
+current you want an employer read to be is your decision. ``PULSE_DAILY_LIMIT``
+is the only bound.
 
 **How it reaches the web** depends on your provider, and this is the one
 pipeline that deliberately steps outside ``get_provider()`` — server-side web
@@ -51,7 +52,7 @@ from app.config import (
     settings,
 )
 from app.db import get_conn
-from app.text import canonical_company, fuzzy_duration
+from app.text import canonical_company
 
 log = logging.getLogger(__name__)
 
@@ -456,40 +457,6 @@ def pulse_for_company(company: str | None):
         conn.close()
 
 
-def _is_stale(row) -> bool:
-    return (row["status"] == "ready"
-            and bool(row["last_updated"])
-            and row["last_updated"] <= _ago_str(days=settings.pulse_ttl_days))
-
-
-def _refresh_wait(row) -> str | None:
-    """Fuzzy time until this ready row's TTL window reopens ('about 2 days'),
-    or None when nothing is counting down (not ready, or already stale)."""
-    if row is None or row["status"] != "ready" or not row["last_updated"]:
-        return None
-    unlock = (datetime.strptime(row["last_updated"], "%Y-%m-%d %H:%M:%S")
-              + timedelta(days=settings.pulse_ttl_days))
-    remaining = (unlock - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds()
-    if remaining <= 0:
-        return None
-    return fuzzy_duration(remaining)
-
-
-def refresh_wait(pulse_id: int) -> str | None:
-    """_refresh_wait for a row by id — lets the router put the countdown in the
-    'this pulse is still fresh' toast."""
-    conn = get_conn()
-    try:
-        # Narrow: _refresh_wait only reads status/last_updated — SELECT * would
-        # drag the whole pulse_json payload into a toast-path lookup.
-        row = conn.execute(
-            "SELECT status, last_updated FROM company_pulses WHERE id = ?", (pulse_id,)
-        ).fetchone()
-    finally:
-        conn.close()
-    return _refresh_wait(row)
-
-
 def ensure_pulse(company: str | None, user_id: int) -> tuple[int | None, bool]:
     """Cache-first lookup used when a job lands: returns (pulse_id, created).
     An existing row — ready, in flight, or errored — is returned as-is and
@@ -533,11 +500,15 @@ def ensure_pulse(company: str | None, user_id: int) -> tuple[int | None, bool]:
 
 
 def request_pulse(company: str | None, user_id: int) -> tuple[str, int | None]:
-    """Explicit user action (Investigate / Refresh / Try again). Enforces the
-    TTL window and daily limit here, regardless of what the UI showed.
+    """Explicit user action (Investigate / Refresh / Try again).
+
+    A ready pulse can be refreshed whenever you want — there is no cooldown.
+    You are spending your own API credit, so how current you want an employer
+    read to be is your call, not the app's. The daily limit is the only bound,
+    and it is enforced here rather than in the UI.
+
     Outcomes: 'created' | 'refreshing' (caller must run submit_pulse),
-    'busy' (already in flight), 'fresh' (inside the TTL window — not honored),
-    'limit', 'invalid' (no researchable name)."""
+    'busy' (already in flight), 'limit', 'invalid' (no researchable name)."""
     name = valid_company_name(company)
     if name is None:
         return "invalid", None
@@ -557,15 +528,16 @@ def request_pulse(company: str | None, user_id: int) -> tuple[str, int | None]:
             return ("busy", pid) if pid is not None else ("limit", None)
         if row["status"] in ("pending", "submitting"):
             return "busy", row["id"]
-        if row["status"] == "ready" and not _is_stale(row):
-            return "fresh", row["id"]
-        # stale ready, or error → a refresh, spending one lookup
+        # ready or error → a refresh, spending one lookup
         if _at_limit(conn, user_id):
             return "limit", row["id"]
+        # The status predicate is still the claim: it loses to a refresh that
+        # another request (or the poller) started a moment earlier, which is
+        # what keeps a double-click from paying for two research runs.
         cur = conn.execute(
             "UPDATE company_pulses SET status = 'pending', error = NULL "
-            "WHERE id = ? AND (status = 'error' OR (status = 'ready' AND last_updated <= ?))",
-            (row["id"], _ago_str(days=settings.pulse_ttl_days)),
+            "WHERE id = ? AND status IN ('ready', 'error')",
+            (row["id"],),
         )
         if cur.rowcount == 0:  # raced with a concurrent refresh/completion
             conn.commit()
@@ -1017,10 +989,7 @@ def tab_context(job, user_id: int) -> dict:
     ctx = {
         "pulse": None,
         "pulse_data": None,
-        "pulse_stale": False,
         "pulse_left": requests_remaining(user_id),
-        "pulse_ttl_days": settings.pulse_ttl_days,
-        "pulse_refresh_wait": None,
     }
     row = pulse_for_company(job["company"] if job else None)
     if row is None:
@@ -1028,6 +997,4 @@ def tab_context(job, user_id: int) -> dict:
     ctx["pulse"] = row
     if row["pulse_json"]:
         ctx["pulse_data"] = _present(json.loads(row["pulse_json"]))
-    ctx["pulse_stale"] = _is_stale(row)
-    ctx["pulse_refresh_wait"] = _refresh_wait(row)
     return ctx

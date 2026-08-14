@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Re
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.identity import current_user_id
-from app.config import MAX_UPLOAD_BYTES, settings
+from app.config import MAX_UPLOAD_BYTES
 from app.db import public_id_of, resolve_id
 from app.services import analysis as analysis_service
 from app.services import documents as documents_service
@@ -335,27 +335,21 @@ def study_drill(
 @router.post("/{job_pid}/pulse")
 def pulse_request(request: Request, background: BackgroundTasks, job_id: int = Depends(owned_job)):
     """Investigate this job's company, or refresh/retry an existing pulse. The
-    service enforces the TTL window and the per-day search quota server-side
-    regardless of what the client rendered."""
+    service enforces the per-day search allowance server-side regardless of
+    what the client rendered. There is no cooldown — a ready pulse can be
+    refreshed whenever you want."""
     uid = current_user_id(request)
     job, _, _ = jobs_service.get_job(job_id, uid)
     outcome, pulse_id = pulse_service.request_pulse(job["company"] if job else None, uid)
     if outcome in ("created", "refreshing") and pulse_id is not None:
         background.add_task(pulse_service.submit_pulse, pulse_id)
-    if outcome == "fresh" and pulse_id is not None and (
-        wait := pulse_service.refresh_wait(pulse_id)
-    ):
-        message, tone = (f"This pulse is still fresh — refresh unlocks in {wait}.", "error")
-    else:
-        message, tone = {
-            "created": ("Investigating — this can take a few minutes.", "success"),
-            "refreshing": ("Refreshing the pulse — this can take a few minutes.", "success"),
-            "busy": ("Already researching this company.", "success"),
-            "fresh": (f"This pulse is under {settings.pulse_ttl_days} days old — "
-                      "refresh unlocks after that.", "error"),
-            "limit": ("Daily research limit reached — try again tomorrow.", "error"),
-            "invalid": ("No researchable company name on this job.", "error"),
-        }[outcome]
+    message, tone = {
+        "created": ("Investigating — this can take a few minutes.", "success"),
+        "refreshing": ("Refreshing the pulse — this can take a few minutes.", "success"),
+        "busy": ("Already researching this company.", "success"),
+        "limit": ("Daily research limit reached — try again tomorrow.", "error"),
+        "invalid": ("No researchable company name on this job.", "error"),
+    }[outcome]
     if "hx-request" not in request.headers:
         return RedirectResponse(f"/app/jobs/{public_id_of('jobs', job_id)}?tab=pulse", status_code=303)
     ctx = _tab_context(request, job_id, "pulse")
