@@ -235,8 +235,9 @@ anti-flash cache only.
 **Settings page** (`app/routers/account.py`, `/app/account`): résumé header
 details (name, email, phone — injected at render time, never sent to the model),
 display preference, a live readout of the configured provider/model/search
-backend, today's usage, and **Delete all my data** (typed confirmation behind
-the styled confirm dialog). `users_service.reset_data()` clears every
-user-scoped table in one transaction and unlinks the uploaded files after
-commit; `tests/test_settings_page.py` sweeps the schema for `user_id` columns
-afterwards, so a future user-scoped table this list misses fails that test.
+backend, today's usage, and the on-disk paths of the database and uploads.
+
+There is deliberately **no destructive action** here. The whole state is one
+SQLite file plus one directory, so deleting them is the reset — it needs no
+code, can't half-succeed, and can't be triggered by a stray click or a
+cross-site POST. Don't reintroduce a wipe button; print the paths instead.

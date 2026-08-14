@@ -4,7 +4,9 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.config import (
+    DB_PATH,
     MOCK,
+    UPLOADS_DIR,
     resolved_model,
     research_provider_name,
     search_backend_name,
@@ -43,7 +45,7 @@ def _provider_ctx() -> dict:
     }
 
 
-def _page(request: Request, *, reset_error: str | None = None, status_code: int = 200):
+def _page(request: Request):
     uid = current_user_id(request)
     return templates.TemplateResponse(
         request,
@@ -52,10 +54,12 @@ def _page(request: Request, *, reset_error: str | None = None, status_code: int 
             "active_nav": "account",
             "user": users_service.get_user(uid),
             "usage": usage_service.usage_summary(uid),
-            "reset_error": reset_error,
+            # Shown so you always know which files hold your data — this is a
+            # local tool, so "delete my data" is `rm` on these, not a button.
+            "db_path": str(DB_PATH),
+            "uploads_path": str(UPLOADS_DIR),
             **_provider_ctx(),
         },
-        status_code=status_code,
     )
 
 
@@ -106,18 +110,3 @@ def save_display(request: Request, theme: str = Form("")):
             **{"theme-pref": {"theme": theme}},
         ),
     )
-
-
-@router.post("/reset")
-def reset_data(request: Request, confirm: str = Form("")):
-    """Wipe every job, document, fact, and session (styled-dialog confirm plus
-    a typed confirmation, validated here — the dialog is a convenience, this is
-    the actual guard). Irreversible, so it demands the exact word."""
-    if confirm.strip().upper() != "DELETE":
-        return _page(
-            request,
-            reset_error="That didn't match — type DELETE exactly to confirm.",
-            status_code=422,
-        )
-    users_service.reset_data(current_user_id(request))
-    return RedirectResponse("/app?reset=1", status_code=303)

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Settings · JobPrep Works{% endblock %}
-{% block meta_description %}Your name, display preference, model configuration, and today's AI usage.{% endblock %}
+{% block meta_description %}Your résumé header, display preference, model configuration, and today's AI usage.{% endblock %}
 {% block content %}
 <h1>Settings</h1>
 <p class="muted page-lede">This install is yours alone — no account, no sign-in, no server but the one you started.</p>
@@ -11,23 +11,24 @@
     Printed at the top of any résumé this app generates. These fields are never sent to
     the model — they're stamped in at render time, so they can't be reworded or invented.
   </p>
-  <form hx-post="/app/account/name" hx-swap="none" class="stack">
-    <div class="field-row">
-      <label>First name
+  <form hx-post="/app/account/name" hx-swap="none" class="stacked-form">
+    {# Marked = required, unmarked = optional (the .req convention in style.css). #}
+    <div class="form-row">
+      <label><span>First name<span class="req" aria-hidden="true">*</span></span>
         <input type="text" name="first_name" value="{{ user.first_name or '' }}" required>
       </label>
-      <label>Last name
+      <label><span>Last name</span>
         <input type="text" name="last_name" value="{{ user.last_name or '' }}">
       </label>
     </div>
-    <div class="field-row">
-      <label>Email
+    <div class="form-row">
+      <label><span>Email</span>
         <input type="email" name="contact_email" value="{{ user.contact_email or '' }}"
-               placeholder="you@example.com">
+               placeholder="you@example.com" autocomplete="email">
       </label>
-      <label>Phone
-        <input type="text" name="contact_phone" value="{{ user.contact_phone or '' }}"
-               placeholder="optional">
+      <label><span>Phone</span>
+        <input type="tel" name="contact_phone" value="{{ user.contact_phone or '' }}"
+               placeholder="+1 555 0100" autocomplete="tel">
       </label>
     </div>
     <button type="submit" class="primary">Save</button>
@@ -36,8 +37,8 @@
 
 <section class="card">
   <h2>Display</h2>
-  <form hx-post="/app/account/display" hx-swap="none" class="stack">
-    <label>Theme
+  <form hx-post="/app/account/display" hx-swap="none" class="stacked-form">
+    <label><span>Theme</span>
       <select name="theme">
         <option value="system" {{ 'selected' if user.theme == 'system' else '' }}>Match my system</option>
         <option value="light" {{ 'selected' if user.theme == 'light' else '' }}>Light</option>
@@ -51,16 +52,16 @@
 <section class="card">
   <h2>Model configuration</h2>
   <p class="muted small">Read live from the running process. Edit <code>.env</code> and restart to change any of it.</p>
-  <table class="config-table">
+  <table>
     <tbody>
-      <tr><th scope="row">Provider</th><td><code>{{ provider }}</code></td></tr>
-      <tr><th scope="row">Model</th><td><code>{{ model }}</code></td></tr>
-      <tr><th scope="row">Research provider</th><td><code>{{ research_provider }}</code></td></tr>
-      <tr><th scope="row">Research model</th><td><code>{{ research_model }}</code></td></tr>
+      <tr><th scope="row">Provider</th><td class="tabular">{{ provider }}</td></tr>
+      <tr><th scope="row">Model</th><td class="tabular">{{ model }}</td></tr>
+      <tr><th scope="row">Research provider</th><td class="tabular">{{ research_provider }}</td></tr>
+      <tr><th scope="row">Research model</th><td class="tabular">{{ research_model }}</td></tr>
       <tr>
         <th scope="row">Web search</th>
         <td>
-          <code>{{ search_backend }}</code>
+          <span class="tabular">{{ search_backend }}</span>
           {% if search_backend == 'mock' %}
           <span class="muted small">— canned research, no network</span>
           {% elif search_backend == 'none' %}
@@ -98,11 +99,13 @@
   {% endif %}
 
   {% if usage.by_kind %}
-  <ul class="usage-breakdown">
-    {% for row in usage.by_kind %}
-    <li><span>{{ row.label }}</span> <strong>{{ row.units }}</strong></li>
-    {% endfor %}
-  </ul>
+  <table>
+    <tbody>
+      {% for row in usage.by_kind %}
+      <tr><th scope="row">{{ row.label }}</th><td class="num tabular">{{ row.units }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
   {% endif %}
 
   {% if pulse_available %}
@@ -116,24 +119,21 @@
   <p class="muted small">Lifetime: {{ usage.lifetime }} action{{ '' if usage.lifetime == 1 else 's' }}.</p>
 </section>
 
-<section class="card danger-card">
-  <h2>Delete all my data</h2>
-  {% if reset_error %}<p class="error-text">{{ reset_error }}</p>{% endif %}
+<section class="card">
+  <h2>Your data</h2>
   <p>
-    Removes every job, document, profile fact, interview session, insight, and
-    generated résumé or pitch, plus the uploaded files behind them. Your name and
-    theme stay. <strong>This cannot be undone</strong> — the app has no backup of its own.
+    Everything this app knows about you — jobs, documents, profile facts, interview
+    sessions, generated résumés — lives in two places on this machine and nowhere else:
   </p>
+  <table>
+    <tbody>
+      <tr><th scope="row">Database</th><td class="tabular">{{ db_path }}</td></tr>
+      <tr><th scope="row">Uploads</th><td class="tabular">{{ uploads_path }}</td></tr>
+    </tbody>
+  </table>
   <p class="muted small">
-    Your data lives in one SQLite file. If you'd rather keep a copy first, stop the app
-    and copy <code>data/jobprep.db</code> somewhere safe.
+    Back it up by copying those files. Move them to another machine the same way. To
+    start over, stop the app and delete them — the schema rebuilds itself on next start.
   </p>
-  <form method="post" action="/app/account/reset" class="stack"
-        data-confirm="Delete every job, document, fact, and session? This cannot be undone.">
-    <label>Type <strong>DELETE</strong> to confirm
-      <input type="text" name="confirm" autocomplete="off" required placeholder="DELETE">
-    </label>
-    <button type="submit" class="danger">Delete all my data</button>
-  </form>
 </section>
 {% endblock %}

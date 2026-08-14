@@ -1,36 +1,15 @@
-"""The single local profile row: your name and display preference, plus the
-one destructive operation — wiping everything the app has stored about you.
-"""
+"""The single local profile row: the name and contact details a generated
+résumé is headed with, and the display preference.
 
-import logging
+There is deliberately no "delete my account" or "wipe my data" operation. This
+app is a local tool whose entire state is one SQLite file and one uploads
+directory — deleting those IS the reset, it needs no code, and it can't half-
+succeed. The Settings page prints both paths so you know what to remove.
+"""
 
 from app.db import get_conn
 
-log = logging.getLogger(__name__)
-
 VALID_THEMES = ("system", "light", "dark")
-
-# Cleared top-down by reset_data(). Each entry cascades its own children
-# (jobs → requirements/analyses/events/follow-ups, sessions → answers/
-# assessments, facts → sources), so only the top-level tables are listed.
-# tests/test_account.py checks this list against the schema, so a new
-# user-scoped table that gets missed here fails loudly there.
-_USER_TABLES = (
-    "pulse_requests",       # per-request research ledger
-    "interview_sessions",   # → session_answers, assessments
-    "questions",            # global/mixer questions have no job to cascade from
-    "jobs",                 # → requirements, fit_analyses, events, follow_ups,
-                            #   pitches, resumes
-    "study_guides",         # global guides have job_id NULL
-    "insights",
-    "insight_runs",
-    "fact_parses",
-    "profile_facts",        # → fact_sources
-    "documents",
-    "awards",
-    "llm_requests",
-    "llm_usage_daily",
-)
 
 
 def get_user(user_id: int):
@@ -96,43 +75,3 @@ def set_theme(theme: str, *, user_id: int) -> bool:
         return True
     finally:
         conn.close()
-
-
-def reset_data(user_id: int) -> bool:
-    """Irreversibly delete every job, document, fact, session, and generated
-    artifact, plus the uploaded files behind them. One transaction — the data
-    is either fully gone or untouched; files are unlinked only after the commit
-    succeeds, so a failed transaction can't orphan them.
-
-    The profile row itself survives (name, theme) and so does the shared
-    company_pulses research cache, which is about employers rather than you.
-    If you want a truly clean slate, stop the app and delete the database file.
-    """
-    conn = get_conn()
-    try:
-        paths = [
-            r["path"]
-            for r in conn.execute(
-                "SELECT path FROM documents WHERE user_id = ?", (user_id,)
-            ).fetchall()
-        ]
-        for table in _USER_TABLES:
-            conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
-        # The global focus plan's status lives in app_state, keyed per user.
-        from app.services.study import global_error_key, global_status_key
-
-        conn.execute(
-            "DELETE FROM app_state WHERE key IN (?, ?)",
-            (global_status_key(user_id), global_error_key(user_id)),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    from app.services.storage import get_storage
-
-    storage = get_storage()
-    for p in paths:
-        storage.delete(p)
-    log.info("reset data for user %s (%s files removed)", user_id, len(paths))
-    return True

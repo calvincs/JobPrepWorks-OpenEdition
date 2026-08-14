@@ -122,9 +122,10 @@ data/
 └── uploads/        the documents you uploaded, as files
 ```
 
-Back it up by copying `data/`. Move it to another machine the same way. Reset to
-factory by deleting it. Settings → **Delete all my data** does the same thing
-from inside the app.
+Back it up by copying `data/`. Move it to another machine the same way. To start
+over, stop the app and delete it — the schema rebuilds itself on the next start.
+There is no "wipe my data" button, because `rm -rf data/` is the button, and it
+can't half-succeed. Settings prints both paths so you always know what to remove.
 
 Nothing is sent anywhere except the model provider you configured, and the web
 searches Company Pulse runs when you ask it to research a company. There is no
