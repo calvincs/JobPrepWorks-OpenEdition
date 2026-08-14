@@ -448,3 +448,89 @@ p code, li code {
   .rv { opacity: 1; transform: none; transition: none; }
   .shot a:hover { transform: none; }
 }
+
+/* ── screenshot viewer ──────────────────────────────────────────────────────
+   A native <dialog>, so Escape and the inert background are the platform's
+   job. Sized to the viewport rather than the image: these captures run to
+   1500px tall, and a modal you have to scroll defeats the point of opening
+   one. The original is a click away for anyone who wants to read the fine
+   print. */
+.lightbox {
+  width: min(1440px, 94vw);
+  max-width: none;
+  max-height: 94vh;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+  overflow: visible;
+}
+.lightbox::backdrop {
+  background: rgba(8, 10, 13, 0.82);
+  backdrop-filter: blur(3px);
+}
+.lightbox img {
+  display: block;
+  width: 100%;
+  max-height: calc(94vh - 62px);   /* leave room for the caption bar */
+  object-fit: contain;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--bg);
+}
+.lightbox-cap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  font: 500 13px/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.lightbox-cap a { color: var(--accent-text); text-underline-offset: 3px; }
+.lightbox-hint { margin-left: auto; opacity: 0.75; }
+.lightbox-hint kbd {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+@media (max-width: 620px) {
+  /* "Press Esc" is a lie on a touch device, and the close button is right
+     there on this breakpoint anyway. */
+  .lightbox-hint { display: none; }
+}
+/* Sits on the frame's corner rather than over the screenshot, so it never
+   covers the content you opened the viewer to look at. */
+.lightbox-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  z-index: 1;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.lightbox-close:hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.lightbox-close svg { width: 17px; height: 17px; stroke: currentColor; stroke-width: 2.2; fill: none; stroke-linecap: round; }
+@media (max-width: 620px) {
+  .lightbox { width: 96vw; }
+  .lightbox-close { top: 6px; right: 6px; }
+}
+/* The thumbnails are links, so show the affordance for what they now do. */
+.shot a, .step figure a { cursor: zoom-in; }

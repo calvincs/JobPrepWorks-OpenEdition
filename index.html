@@ -284,6 +284,22 @@ scripts/run                   <span class="c"># → http://127.0.0.1:8000</span>
 
 </main>
 
+<!-- Screenshot viewer. A native <dialog> so Escape, focus trapping, and the
+     inert background come from the platform rather than hand-rolled JS. The
+     thumbnails stay plain links to the image, so with JS off (or if showModal
+     is missing) clicking one still opens the full picture. -->
+<dialog id="lightbox" class="lightbox" aria-label="Screenshot viewer">
+  <button type="button" class="lightbox-close" data-close-lightbox aria-label="Close viewer (Escape)">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+  <img id="lightbox-img" src="" alt="">
+  <p class="lightbox-cap">
+    <span id="lightbox-cap"></span>
+    <a id="lightbox-raw" href="" target="_blank" rel="noopener">Open the full-size image ↗</a>
+    <span class="lightbox-hint">Press <kbd>Esc</kbd> or click outside to close</span>
+  </p>
+</dialog>
+
 <footer class="footer">
   <div class="wrap">
     <p class="sign-off">Do the reps.<br><b>Then walk in ready.</b></p>
