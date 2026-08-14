@@ -1,0 +1,450 @@
+/*
+  JobPrep Works — Open Edition · project site (gh-pages branch)
+
+  Theming is lifted from the JobPrep Studio landing page so the two read as one
+  family: same tokens, same amber rail down the left of each section, same
+  Anton display face, same dark nav band. What is NOT lifted is everything that
+  only makes sense for a paid product — sign-in, pricing, trial copy, the
+  shortcut-vs-coach pitch. This page has one job: show what the tool looks like
+  and how to run it.
+
+  Self-contained: no build step, no framework, no external requests. Fonts are
+  the same self-hosted OFL files the app ships.
+*/
+
+@font-face {
+  font-family: "Geist";
+  src: url("fonts/geist-var.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("fonts/geist-mono-var.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Anton";
+  src: url("fonts/anton.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light dark;
+
+  --bg:            light-dark(#f6f7f9, #0f1216);
+  --surface:       light-dark(#ffffff, #161a20);
+  --border:        light-dark(#e4e7ec, #262d37);
+  --border-strong: light-dark(#cdd3db, #333c49);
+  --ink:    light-dark(#171c23, #e9edf3);
+  --muted:  light-dark(#5b6472, #8e97a5);
+  --subtle: light-dark(#49525f, #a6b0bd);
+
+  --accent:       #ffb224;
+  --accent-hover: light-dark(#f2a50e, #ffc247);
+  --on-accent:    #1a1205;
+  --accent-text:  #ffb224;
+  --accent-soft:  color-mix(in srgb, var(--accent) 14%, transparent);
+
+  --green: light-dark(#0e7a5f, #3dd68c);
+  --red:   light-dark(#c0321e, #f2555a);
+  --steel: light-dark(#3b6e8f, #6cb2f5);
+
+  --footer-bg: light-dark(#171c23, #141920);
+  --footer-muted: light-dark(#9aa4b1, #8e97a5);
+
+  --shadow: light-dark(0 1px 2px rgba(23, 28, 35, 0.06), 0 1px 2px rgba(0, 0, 0, 0.4));
+  --shadow-lg: light-dark(0 18px 48px rgba(23, 28, 35, 0.16), 0 18px 48px rgba(0, 0, 0, 0.55));
+  --r: 8px;
+  --r-lg: 12px;
+
+  --font-sans: "Geist", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-display: "Anton", "Arial Narrow", Impact, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 18px/1.65 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+::selection { background: var(--accent); color: var(--on-accent); }
+img, svg { max-width: 100%; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.wrap { max-width: 1240px; margin-inline: auto; padding-inline: clamp(20px, 4vw, 48px); }
+.skip {
+  position: absolute; left: -9999px;
+  background: var(--accent); color: var(--on-accent);
+  padding: 12px 18px; border-radius: var(--r); z-index: 80;
+}
+.skip:focus { left: 16px; top: 12px; }
+
+/* ── nav: dark band in both themes, so the amber brand initials stay legible ── */
+.lp-nav {
+  --ink: #e9edf3;
+  --muted: #8e97a5;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid #2a323d;
+  background:
+    radial-gradient(460px 140% at 0% 0%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
+    linear-gradient(180deg, #1d242e, #12161c);
+}
+.lp-nav-in { display: flex; align-items: center; gap: 28px; padding-block: 16px; }
+.brand {
+  display: block;
+  font-weight: 650;
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-decoration: none;
+  color: var(--ink);
+}
+.brand-accent { color: var(--accent-text); }
+.brand::after {
+  content: "open edition · runs on your machine";
+  display: block;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 3px;
+}
+@media (max-width: 640px) {
+  .brand { font-size: 1.05rem; }
+  .brand::after { display: none; }
+}
+.nav-links { display: flex; gap: 24px; margin-left: auto; align-items: center; }
+.nav-links a:not(.btn) {
+  font: 550 15px/1 var(--font-sans);
+  text-decoration: none;
+  color: var(--ink);
+}
+.nav-links a:not(.btn):hover { color: var(--accent-text); }
+@media (max-width: 720px) { .nav-links a.hide-sm { display: none; } }
+
+/* ── buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 26px;
+  border-radius: var(--r);
+  font: 600 16px/1 var(--font-sans);
+  text-decoration: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 1px solid transparent;
+  transition: background 0.15s ease;
+}
+.btn:hover { background: var(--accent-hover); }
+.btn.small { padding: 10px 16px; font-size: 14px; }
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 26px;
+  border-radius: var(--r);
+  font: 600 16px/1 var(--font-sans);
+  text-decoration: none;
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+  transition: border-color 0.15s ease;
+}
+.btn-ghost:hover { border-color: var(--accent); }
+.btn svg, .btn-ghost svg { width: 17px; height: 17px; fill: currentColor; }
+
+/* ── hero ── */
+.hero {
+  border-bottom: 1px solid var(--border);
+  background: radial-gradient(1100px 480px at 88% -12%, var(--accent-soft), transparent 70%);
+}
+.hero .wrap { padding-block: clamp(64px, 8vw, 112px); }
+.eyebrow {
+  font: 600 12px/1 var(--font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--subtle);
+  margin: 0 0 26px;
+}
+.hero h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(52px, 9vw, 118px);
+  line-height: 0.96;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  margin: 0 0 30px;
+  text-wrap: balance;
+}
+.pen-under { position: relative; display: inline-block; }
+.pen-under svg {
+  position: absolute;
+  left: -1%;
+  bottom: -0.1em;
+  width: 102%;
+  height: 0.16em;
+  overflow: visible;
+}
+.pen-under path { stroke: var(--red); stroke-width: 7; fill: none; stroke-linecap: round; }
+.hero .sub {
+  max-width: 62ch;
+  font-size: clamp(18px, 1.7vw, 21px);
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0 0 34px;
+}
+.hero .sub b { font-weight: 600; color: var(--ink); }
+.cta-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 0 0 20px; }
+.micro { font: 400 14px/1.6 var(--font-sans); color: var(--subtle); margin: 0; }
+.micro code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* The hero shot: a browser-ish frame so it reads as a running app, not art. */
+.hero-shot { margin-top: clamp(40px, 5vw, 64px); }
+.frame {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.frame-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+}
+.frame-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); }
+.frame-bar span {
+  margin-left: 8px;
+  font: 500 12px/1 var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.frame img { display: block; width: 100%; height: auto; }
+
+/* ── sections with the amber rail ── */
+.sec-wrap { border-top: 1px solid var(--border); }
+.sec { padding-block: clamp(56px, 7vw, 100px); }
+@media (min-width: 920px) {
+  .sec { display: grid; grid-template-columns: 150px 1fr; gap: clamp(44px, 5vw, 64px); }
+}
+.sec-label {
+  font: 600 12px/1.5 var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--subtle);
+  margin-bottom: 26px;
+}
+@media (min-width: 920px) {
+  .sec-label { position: sticky; top: 92px; align-self: start; margin-bottom: 0; }
+}
+.sec-body { border-left: 3px solid var(--accent); padding-left: clamp(22px, 4vw, 56px); }
+.sec-body h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(34px, 4.6vw, 58px);
+  line-height: 1.02;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  margin: 0 0 22px;
+  text-wrap: balance;
+}
+.lead { max-width: 66ch; font-size: clamp(17.5px, 1.5vw, 19.5px); margin: 0 0 18px; }
+.muted { color: var(--muted); }
+.kicker { max-width: 66ch; font-weight: 600; font-size: clamp(17.5px, 1.5vw, 19.5px); margin: 34px 0 0; }
+
+/* ── the tour: alternating caption + screenshot ── */
+.tour { display: grid; gap: clamp(44px, 6vw, 76px); margin-top: 44px; }
+.step { display: grid; gap: clamp(20px, 3vw, 34px); align-items: center; }
+@media (min-width: 900px) {
+  /* The screenshot always takes the wider column. Flipping only reorders the
+     children, so the track widths have to swap with them — otherwise every
+     other shot renders into the narrow 0.85fr column. */
+  .step { grid-template-columns: 0.85fr 1.15fr; }
+  .step.flip { grid-template-columns: 1.15fr 0.85fr; }
+  .step.flip .step-text { order: 2; }
+}
+.step h3 {
+  font: 600 13px/1.4 var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+  margin: 0 0 10px;
+}
+.step h4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(24px, 2.6vw, 34px);
+  line-height: 1.08;
+  text-transform: uppercase;
+  margin: 0 0 12px;
+}
+.step p { margin: 0 0 12px; color: var(--muted); font-size: 16.5px; line-height: 1.65; }
+.step p b { color: var(--ink); font-weight: 600; }
+.step figure { margin: 0; }
+.step figure a { display: block; }
+
+/* ── gallery ── */
+.shots { display: grid; gap: clamp(20px, 2.6vw, 30px); margin-top: 40px; }
+@media (min-width: 700px) { .shots { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1100px) { .shots { grid-template-columns: repeat(3, 1fr); } }
+.shot { margin: 0; }
+.shot a {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.shot a:hover { border-color: var(--accent); transform: translateY(-2px); }
+/* Uniform tiles: the captures run from 900 to 1500px tall, so letting them
+   size naturally leaves the grid ragged and the captions on different
+   baselines. Crop to a common ratio from the top (where every page's heading
+   and first card live) — the full image is one click away. */
+.shot img {
+  display: block;
+  width: 100%;
+  /* height:auto is load-bearing, not tidiness: the <img height> attribute is a
+     presentational hint, and a specified height beats aspect-ratio — leave it
+     out and every tile renders 1000px tall at 1:1, spilling out of the grid. */
+  height: auto;
+  aspect-ratio: 16 / 11;
+  object-fit: cover;
+  object-position: top center;
+}
+.shot figcaption {
+  font: 500 13px/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-top: 10px;
+}
+
+/* ── provider table ── */
+.tbl-scroll { overflow-x: auto; margin-top: 34px; }
+table.providers { width: 100%; border-collapse: collapse; font-size: 16px; min-width: 640px; }
+table.providers th, table.providers td {
+  text-align: left;
+  padding: 14px 18px 14px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+table.providers thead th {
+  font: 600 12px/1.4 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--subtle);
+  border-bottom-color: var(--border-strong);
+}
+table.providers tbody th { font-weight: 600; white-space: nowrap; }
+table.providers td { color: var(--muted); }
+table.providers code { font-family: var(--font-mono); font-size: 0.88em; color: var(--ink); }
+
+/* ── code blocks ── */
+pre {
+  margin: 26px 0 0;
+  padding: 22px 24px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r);
+  background: light-dark(#1d242e, #12161c);
+  color: #e9edf3;
+  font: 400 14.5px/1.75 var(--font-mono);
+}
+pre .c { color: #8e97a5; }
+pre .k { color: var(--accent); }
+p code, li code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* ── facts ── */
+.facts { display: grid; gap: clamp(18px, 2.4vw, 26px); margin-top: 40px; list-style: none; padding: 0; }
+@media (min-width: 760px) { .facts { grid-template-columns: repeat(2, 1fr); } }
+.facts li {
+  border-top: 2px solid var(--border-strong);
+  padding-top: 15px;
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.facts b {
+  display: block;
+  font: 600 12px/1.5 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+/* ── footer ── */
+.footer { background: var(--footer-bg); color: #e9edf3; border-top: 1px solid var(--border); }
+.footer .wrap { padding-block: clamp(56px, 8vw, 96px); }
+.footer .sign-off {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(38px, 6.5vw, 84px);
+  line-height: 1;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+.footer .sign-off b { color: var(--accent); font-weight: 400; }
+.footer .micro { color: var(--footer-muted); max-width: 74ch; }
+.footer .micro + .micro { margin-top: 12px; }
+.footer .micro a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.footer .micro a:hover { color: #e9edf3; }
+/* The repo URL spelled out, so the address is readable even in a screenshot
+   or a print of this page — not just hidden behind a button label. */
+.repo-url {
+  display: inline-block;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--accent) !important;
+  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  word-break: break-word;
+}
+.footer .cta-row { margin-top: 30px; }
+.footer .btn-ghost { color: #e9edf3; border-color: #2a323d; }
+
+/* ── motion ── */
+.draw path { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); }
+.draw.in path { animation: draw 0.7s ease 0.15s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.rv { opacity: 0; transform: translateY(12px); transition: opacity 0.55s ease, transform 0.55s ease; }
+.rv.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .draw path { stroke-dashoffset: 0; animation: none; }
+  .rv { opacity: 1; transform: none; transition: none; }
+  .shot a:hover { transform: none; }
+}

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>JobPrep Works — Open Edition</title>
+  <meta name="description" content="Open-source interview prep that runs entirely on your machine. Honest fit analysis, graded mock interviews, cited employer research — powered by Anthropic, OpenAI, OpenRouter, or a local Ollama. MIT licensed.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="JobPrep Works — Open Edition">
+  <meta property="og:description" content="Open-source interview prep that runs entirely on your machine. Bring your own model: Anthropic, OpenAI, OpenRouter, or a local Ollama. MIT licensed.">
+  <meta property="og:image" content="https://calvincs.github.io/JobPrepWorks-OpenEdition/assets/shots/01-dashboard.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#1d242e">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1216">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon-96.png" type="image/png" sizes="96x96">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="assets/site.css">
+  <script src="assets/site.js" defer></script>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="lp-nav">
+  <div class="wrap lp-nav-in">
+    <a class="brand" href="#top"><span class="brand-accent">J</span>ob <span class="brand-accent">P</span>rep <span class="brand-accent">W</span>orks</a>
+    <nav class="nav-links" aria-label="Page">
+      <a class="hide-sm" href="#tour">The tour</a>
+      <a class="hide-sm" href="#screens">Screens</a>
+      <a class="hide-sm" href="#models">Models</a>
+      <a class="hide-sm" href="#install">Install</a>
+      <a class="btn small" href="https://github.com/calvincs/JobPrepWorks-OpenEdition">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="wrap">
+    <p class="eyebrow">Open source · MIT · runs locally</p>
+    <h1>The work<br>
+      <span class="pen-under">before<svg class="draw" style="--len:210" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M4 9 C 48 12.5, 96 3.5, 196 8"/></svg></span>
+      the&nbsp;work.
+    </h1>
+    <p class="sub">Interview prep that tells you the truth, running entirely on your own machine. It reads your real résumé, sizes you up against the job you actually want — honestly enough to tell you when it's the wrong one — and drills you on the hard questions until the answers are yours. <b>No account, no subscription, no server but the one you start.</b></p>
+    <div class="cta-row">
+      <a class="btn" href="https://github.com/calvincs/JobPrepWorks-OpenEdition">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        Get the source</a>
+      <a class="btn-ghost" href="#tour">See it working</a>
+    </div>
+    <p class="micro">Python 3.11+ and nothing else — no Docker, no database server, no build step. <code>scripts/setup &amp;&amp; scripts/run</code></p>
+
+    <div class="hero-shot rv">
+      <div class="frame">
+        <div class="frame-bar" aria-hidden="true">
+          <i></i><i></i><i></i><span>127.0.0.1:8000/app</span>
+        </div>
+        <img src="assets/shots/01-dashboard.png" width="1440" height="1000"
+             alt="The JobPrep Works dashboard: setup checklist, skill-mastery bars, milestones, follow-up reminders, and cross-job insights.">
+      </div>
+    </div>
+  </div>
+</section>
+
+<main id="main">
+
+  <section class="sec-wrap" id="tour">
+    <div class="wrap sec">
+      <div class="sec-label">The tour</div>
+      <div class="sec-body">
+        <h2>Six screens,<br>one honest loop.</h2>
+        <p class="lead">Upload what you've already written. Point it at the jobs you actually want. Get told the truth, then drill until it isn't true any more.</p>
+
+        <div class="tour">
+
+          <div class="step rv">
+            <div class="step-text">
+              <h3>01 · Profile</h3>
+              <h4>Your evidence, reconciled</h4>
+              <p>Upload résumés, project write-ups, performance reviews. Each document is parsed into structured facts — roles, skills, education, certifications — and <b>every fact keeps the sentence it came from</b>.</p>
+              <p>Facts are de-duplicated across documents: the same role described three ways becomes one entry, enriched by all three. You can also just type or dictate what you've done.</p>
+            </div>
+            <figure>
+              <a href="assets/shots/02-profile.png"><div class="frame"><img src="assets/shots/02-profile.png" width="1440" height="1250" loading="lazy" alt="The Profile page listing work history, skills with proficiency levels, certifications and career direction."></div></a>
+            </figure>
+          </div>
+
+          <div class="step flip rv">
+            <div class="step-text">
+              <h3>02 · Fit analysis</h3>
+              <h4>The number you didn't want</h4>
+              <p>Your evidenced facts against the job's actual requirements. Strengths cite the evidence. Gaps say what's missing and what closing it would take.</p>
+              <p><b>It is not designed to make you feel good.</b> If you're a 62% fit it says 62%, and it says why — including when the role runs against the career direction you told it you wanted.</p>
+            </div>
+            <figure>
+              <a href="assets/shots/05-job-fit.png"><div class="frame"><img src="assets/shots/05-job-fit.png" width="1440" height="1250" loading="lazy" alt="A fit analysis scoring 71 out of 100, with a Fit-for-you verdict, strengths, and gaps marked critical or minor."></div></a>
+            </figure>
+          </div>
+
+          <div class="step rv">
+            <div class="step-text">
+              <h3>03 · Mock interviews</h3>
+              <h4>Graded, and it pushes back</h4>
+              <p>Questions generated from that job's requirements — technical, behavioural, situational. Answer by typing or speaking.</p>
+              <p>Every answer is scored 1–5 against explicit criteria with specific feedback. <b>A weak answer earns a follow-up</b> that probes exactly the thing you skipped, the way a real interviewer would.</p>
+            </div>
+            <figure>
+              <a href="assets/shots/10-session.png"><div class="frame"><img src="assets/shots/10-session.png" width="1440" height="1300" loading="lazy" alt="An interview transcript showing a question, the candidate's answer, and a coach grade of 4 out of 5 with specific feedback."></div></a>
+            </figure>
+          </div>
+
+          <div class="step flip rv">
+            <div class="step-text">
+              <h3>04 · Company Pulse</h3>
+              <h4>The employer, with receipts</h4>
+              <p>Live web research on the company: ratings, the complaints that keep recurring, recent news — <b>every claim linked to the source it came from</b>. Where the evidence is thin, it says so instead of padding.</p>
+              <p>Works out of the box on Anthropic, OpenAI, and OpenRouter. On a local model the app runs the searches itself through Tavily, Brave, or your own SearXNG.</p>
+            </div>
+            <figure>
+              <a href="assets/shots/06-job-pulse.png"><div class="frame"><img src="assets/shots/06-job-pulse.png" width="1440" height="1250" loading="lazy" alt="A Company Pulse report showing a rating, strengths, complaints, recent news and a list of cited sources."></div></a>
+            </figure>
+          </div>
+
+          <div class="step rv">
+            <div class="step-text">
+              <h3>05 · Insights &amp; study</h3>
+              <h4>The pattern across every job</h4>
+              <p>Chasing several roles? It finds the one gap quietly costing you six applications, then builds a focus plan from the gaps that keep recurring.</p>
+              <p>Per-job study guides too, and any topic can be drilled on the spot with a single instantly-graded question.</p>
+            </div>
+            <figure>
+              <a href="assets/shots/11-insights.png"><div class="frame"><img src="assets/shots/11-insights.png" width="1440" height="1000" loading="lazy" alt="The Insights page showing cross-job focus areas and evidenced strengths."></div></a>
+            </figure>
+          </div>
+
+          <div class="step flip rv">
+            <div class="step-text">
+              <h3>06 · Settings</h3>
+              <h4>No account to manage</h4>
+              <p>Because there isn't one. Settings holds your résumé header, the theme, <b>a live readout of which model you're actually running</b>, and what today's work has cost you in calls.</p>
+              <p>It also prints exactly where your data sits on disk — because deleting those two paths is the reset, and that needs no button.</p>
+            </div>
+            <figure>
+              <a href="assets/shots/13-settings.png"><div class="frame"><img src="assets/shots/13-settings.png" width="1440" height="1500" loading="lazy" alt="The Settings page showing the résumé header form, model configuration readout, today's AI usage, and the on-disk data paths."></div></a>
+            </figure>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec-wrap" id="screens">
+    <div class="wrap sec">
+      <div class="sec-label">Screens</div>
+      <div class="sec-body">
+        <h2>Every screen,<br>nothing staged.</h2>
+        <p class="lead">Straight captures of the running app. Click any of them for the full-size image. Light and dark both ship — the app follows your system by default.</p>
+
+        <div class="shots">
+          <figure class="shot rv"><a href="assets/shots/01-dashboard.png"><img src="assets/shots/01-dashboard.png" width="1440" height="1000" loading="lazy" alt="Dashboard in dark theme"></a><figcaption>Dashboard</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/14-dashboard-light.png"><img src="assets/shots/14-dashboard-light.png" width="1440" height="1000" loading="lazy" alt="Dashboard in light theme"></a><figcaption>Dashboard · light</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/02-profile.png"><img src="assets/shots/02-profile.png" width="1440" height="1250" loading="lazy" alt="Profile page"></a><figcaption>Profile</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/03-jobs.png"><img src="assets/shots/03-jobs.png" width="1440" height="900" loading="lazy" alt="Jobs list"></a><figcaption>Jobs</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/04-job-overview.png"><img src="assets/shots/04-job-overview.png" width="1440" height="1150" loading="lazy" alt="Job overview tab"></a><figcaption>Job · overview</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/05-job-fit.png"><img src="assets/shots/05-job-fit.png" width="1440" height="1250" loading="lazy" alt="Fit analysis tab"></a><figcaption>Job · fit analysis</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/06-job-pulse.png"><img src="assets/shots/06-job-pulse.png" width="1440" height="1250" loading="lazy" alt="Company Pulse tab"></a><figcaption>Job · Company Pulse</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/07-job-resume.png"><img src="assets/shots/07-job-resume.png" width="1440" height="1250" loading="lazy" alt="Tailored resume tab"></a><figcaption>Job · tailored résumé</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/08-job-study.png"><img src="assets/shots/08-job-study.png" width="1440" height="1250" loading="lazy" alt="Study guide tab"></a><figcaption>Job · study guide</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/09-interviews.png"><img src="assets/shots/09-interviews.png" width="1440" height="900" loading="lazy" alt="Interviews list"></a><figcaption>Interviews</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/10-session.png"><img src="assets/shots/10-session.png" width="1440" height="1300" loading="lazy" alt="Graded interview session"></a><figcaption>Session · graded</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/11-insights.png"><img src="assets/shots/11-insights.png" width="1440" height="1000" loading="lazy" alt="Insights page"></a><figcaption>Insights</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/12-study.png"><img src="assets/shots/12-study.png" width="1440" height="1150" loading="lazy" alt="Study page"></a><figcaption>Study</figcaption></figure>
+          <figure class="shot rv"><a href="assets/shots/13-settings.png"><img src="assets/shots/13-settings.png" width="1440" height="1500" loading="lazy" alt="Settings page"></a><figcaption>Settings</figcaption></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec-wrap" id="models">
+    <div class="wrap sec">
+      <div class="sec-label">The models</div>
+      <div class="sec-body">
+        <h2>Bring your own.</h2>
+        <p class="lead">Four providers, all first-class, chosen with one line in <code>.env</code>. You pay your provider directly at their rates — there is no middleman and nothing is gated.</p>
+
+        <div class="tbl-scroll">
+          <table class="providers">
+            <thead>
+              <tr><th scope="col">Provider</th><th scope="col">What you set</th><th scope="col">Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Anthropic</th>
+                <td><code>ANTHROPIC_API_KEY</code></td>
+                <td>The only one with a model default — a key alone is enough. Web search built in.</td>
+              </tr>
+              <tr>
+                <th scope="row">OpenAI</th>
+                <td><code>OPENAI_API_KEY</code> + <code>LLM_MODEL</code></td>
+                <td>Web search built in.</td>
+              </tr>
+              <tr>
+                <th scope="row">OpenRouter</th>
+                <td><code>OPENROUTER_API_KEY</code> + <code>LLM_MODEL</code></td>
+                <td>Hundreds of models behind one key. Prompts routed only to hosts that don't retain them.</td>
+              </tr>
+              <tr>
+                <th scope="row">Ollama</th>
+                <td><code>LLM_MODEL</code> + a running Ollama</td>
+                <td>Fully local — your documents never leave the machine. Needs a search API for Company Pulse.</td>
+              </tr>
+              <tr>
+                <th scope="row">Anything OpenAI-compatible</th>
+                <td><code>LLM_BASE_URL</code> + <code>LLM_MODEL</code></td>
+                <td>llama.cpp, vLLM, LM Studio, a proxy.</td>
+              </tr>
+              <tr>
+                <th scope="row">mock</th>
+                <td>nothing</td>
+                <td>Canned data, no network. For demos, UI work, and looking around before you commit a key.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="kicker">Every feature is always available. There is no plan, no tier, and no upsell — the only optional limit is a spend brake you set for yourself.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec-wrap" id="install">
+    <div class="wrap sec">
+      <div class="sec-label">Install</div>
+      <div class="sec-body">
+        <h2>Four lines.</h2>
+        <p class="lead">Requirements: Python 3.11 or newer. That's the whole list — SQLite ships with Python, and there's no Docker, no database server, no Node, and no build step.</p>
+
+<pre><span class="c"># clone, set up, configure, run</span>
+git clone https://github.com/calvincs/JobPrepWorks-OpenEdition.git
+<span class="k">cd</span> JobPrepWorks-OpenEdition
+scripts/setup                 <span class="c"># venv + dependencies + .env</span>
+$EDITOR .env                  <span class="c"># uncomment ONE provider block</span>
+scripts/run                   <span class="c"># → http://127.0.0.1:8000</span></pre>
+
+        <p class="micro" style="margin-top:18px">Want to look around first? Set <code>LLM_PROVIDER=mock</code> and every feature returns sample data instantly — no API key, no network.</p>
+
+        <ul class="facts">
+          <li><b>Your data stays put</b>One SQLite file and one uploads directory, both inside the project. Back it up by copying the folder; reset by deleting it.</li>
+          <li><b>Nothing phones home</b>No analytics, no crash reporting, no accounts. The only outbound calls are the model provider you chose and the searches Company Pulse makes when you ask it to.</li>
+          <li><b>Safe on a browsing machine</b>Cross-site writes are refused, the CSP is strict, and model output is sanitised before anything renders as a link.</li>
+          <li><b>Set up by an agent</b>An <code>llm.txt</code> in the repo gives a coding agent the install, verification, and troubleshooting steps in its own terms.</li>
+        </ul>
+
+        <div class="cta-row" style="margin-top:38px">
+          <a class="btn" href="https://github.com/calvincs/JobPrepWorks-OpenEdition">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+            Clone it</a>
+          <a class="btn-ghost" href="https://github.com/calvincs/JobPrepWorks-OpenEdition/blob/main/README.md">Read the README</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec-wrap" id="honest">
+    <div class="wrap sec">
+      <div class="sec-label">Honestly</div>
+      <div class="sec-body">
+        <h2>What it isn't.</h2>
+        <p class="lead">It never joins your interview, and it never invents your story. It drills answers and drafts your pitch and résumé <b>from your real experience only</b> — by the time you're in the room, you don't need it there.</p>
+        <ul class="facts">
+          <li><b>Single user, single machine</b>No sharing, no sync, no mobile app. There is no login, so don't expose the port.</li>
+          <li><b>AI output is AI output</b>The fit score and grades are a well-grounded second opinion, not a verdict. Pulse summarises third-party sources that may be outdated or wrong — the links are there so you can check.</li>
+          <li><b>Small local models do worse</b>The extraction schemas and grading rubrics are demanding. If Ollama output looks thin, that's usually the model, not the app.</li>
+          <li><b>Voice input needs a browser API</b>Dictation uses your browser's speech recognition, so it needs one that has it.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <p class="sign-off">Do the reps.<br><b>Then walk in ready.</b></p>
+    <p class="micro">JobPrep Works — Open Edition is free software under the MIT licence. Clone it, change it, ship your own. No warranty, and no affiliation with any company it researches.</p>
+    <p class="micro">Source, issues, and releases:<br>
+      <a class="repo-url" href="https://github.com/calvincs/JobPrepWorks-OpenEdition">github.com/calvincs/JobPrepWorks-OpenEdition</a></p>
+    <p class="micro">Vendored assets, unmodified and permissively licensed: <a href="https://htmx.org">htmx</a> (0BSD), <a href="https://lucide.dev">Lucide</a> icons (ISC), and the Geist and Anton typefaces (SIL Open Font License).</p>
+    <div class="cta-row">
+      <a class="btn-ghost" href="https://github.com/calvincs/JobPrepWorks-OpenEdition">Source on GitHub</a>
+      <a class="btn-ghost" href="https://github.com/calvincs/JobPrepWorks-OpenEdition/issues">Report an issue</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
