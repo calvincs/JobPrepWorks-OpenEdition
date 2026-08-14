@@ -2,6 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7D1G40BK7R"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-7D1G40BK7R');
+  </script>
+
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>JobPrep Works — Open Edition</title>
@@ -251,7 +262,7 @@ scripts/run                   <span class="c"># → http://127.0.0.1:8000</span>
 
         <ul class="facts">
           <li><b>Your data stays put</b>One SQLite file and one uploads directory, both inside the project. Back it up by copying the folder; reset by deleting it.</li>
-          <li><b>Nothing phones home</b>No analytics, no crash reporting, no accounts. The only outbound calls are the model provider you chose and the searches Company Pulse makes when you ask it to.</li>
+          <li><b>The app phones nobody</b>No analytics, no crash reporting, no accounts in the software you run. Its only outbound calls are the model provider you chose and the searches Company Pulse makes when you ask it to. <span class="muted">(This website uses Google Analytics; the app itself does not.)</span></li>
           <li><b>Safe on a browsing machine</b>Cross-site writes are refused, the CSP is strict, and model output is sanitised before anything renders as a link.</li>
           <li><b>Set up by an agent</b>An <code>llm.txt</code> in the repo gives a coding agent the install, verification, and troubleshooting steps in its own terms.</li>
         </ul>
