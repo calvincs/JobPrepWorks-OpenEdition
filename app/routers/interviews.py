@@ -59,6 +59,7 @@ def interviews_page(request: Request):
             "active_nav": "interviews",
             "sessions": [s for s in all_sessions if s["scope"] != "study"],
             "ready_jobs": interviews_service.interviewable_jobs(user_id=uid),
+            "start_error": request.query_params.get("err"),
         },
     )
 
@@ -78,8 +79,9 @@ def start_session(
     the user), then build the session's questions in the background while the
     page polls until ready."""
     uid = current_user_id(request)
-    usage.spend(uid, "questions")  # before the session row exists
-    count = min(max(count, 3), 10)
+    # check() now / record() only once a session actually exists — a start that
+    # can't create a session (stale form, deleted jobs) must not be charged.
+    usage.check(uid, "questions")
 
     def to_internal(pids):
         out = []
@@ -89,7 +91,6 @@ def start_session(
                 out.append(iid)
         return out
 
-    include_opener = False
     if scope == "mixer":
         selected = to_internal(job_ids if len(job_ids) > 1 else ([job_id] if job_id else job_ids))
         session_id = interviews_service.create_session(
@@ -100,13 +101,17 @@ def start_session(
     else:
         # Job-focused sessions open with the "tell me about yourself" opener
         # unless the form opted out (one-click starts default to including it).
-        include_opener = not skip_opener
         session_id = interviews_service.create_session(
-            "job", to_internal([job_id] if job_id else []), count, user_id=uid
+            "job", to_internal([job_id] if job_id else []), count, user_id=uid,
+            include_opener=not skip_opener,
         )
     if session_id is None:
-        return RedirectResponse("/app/interviews", status_code=303)
-    background.add_task(interviews_service.build_session, session_id, count, include_opener)
+        # Every selected job was invalid or no longer interviewable — say so
+        # instead of silently bouncing back (and charge nothing).
+        return RedirectResponse("/app/interviews?err=nojobs", status_code=303)
+    usage.record(uid, "questions")
+    # count/opener were stored at creation; the build reads them from the row.
+    background.add_task(interviews_service.build_session, session_id)
     return RedirectResponse(_session_url(session_id), status_code=303)
 
 
@@ -140,10 +145,16 @@ def session_setup(request: Request, session_id: int = Depends(owned_session)):
 def retry_setup(
     request: Request, background: BackgroundTasks, session_id: int = Depends(owned_session)
 ):
-    usage.spend(current_user_id(request), "questions")
-    interviews_service.reset_setup(session_id)
-    background.add_task(interviews_service.build_session, session_id, 10)
-    session, _, _ = interviews_service.get_session(session_id, current_user_id(request))
+    uid = current_user_id(request)
+    usage.check(uid, "questions")
+    # Only the request that wins the error → generating claim enqueues a build
+    # (and gets charged) — a double-click or an already-recovered session must
+    # not start a second concurrent build. The rebuild reuses the count and
+    # opener choice stored on the session row.
+    if interviews_service.reset_setup(session_id):
+        usage.record(uid, "questions")
+        background.add_task(interviews_service.build_session, session_id)
+    session, _, _ = interviews_service.get_session(session_id, uid)
     if session is None:
         return HTMLResponse("", headers={"HX-Redirect": "/app/interviews"})
     return templates.TemplateResponse(request, "partials/session_setup.html", {"session": session})

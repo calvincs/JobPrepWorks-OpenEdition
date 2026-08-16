@@ -77,7 +77,9 @@ def generate_for_session(job_id: int, count: int, *, user_id: int) -> list[int]:
     try:
         ids: list[int] = []
         try:
-            for q in result.questions:
+            # The schema doesn't bound how many questions the model returns;
+            # `count` is the contract, so anything extra is dropped here.
+            for q in result.questions[:count]:
                 cur = conn.execute(
                     """INSERT INTO questions
                        (user_id, job_id, type, skill, skill_display, difficulty, text,

@@ -84,7 +84,7 @@ def test_build_session_survives_deleted_questions(scalar, monkeypatch):
     finally:
         conn.close()
     sid = I.create_session("job", [j], 3, user_id=1)
-    monkeypatch.setattr(I.questions, "generate_for_session", lambda jid, n: qids)
+    monkeypatch.setattr(I.questions, "generate_for_session", lambda jid, n, *, user_id: qids)
     I.build_session(sid, 3)  # must not raise
     assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "error"
 
@@ -497,6 +497,210 @@ def _rows(sql, *params):
         return conn.execute(sql, params).fetchall()
     finally:
         conn.close()
+
+
+# ── Session size is a contract: clamped in the service, capped end-to-end ──
+
+
+def test_global_session_respects_requested_count(scalar):
+    """A global session over more jobs than the requested count samples jobs
+    instead of silently exceeding the count."""
+    P.create_manual_fact(user_id=1, kind="skill", name="Python")
+    for title in ("A", "B", "C", "D"):
+        J.run_intake(J.create_job(title, user_id=1))
+    sid = I.create_session("global", [], 3, user_id=1)
+    I.build_session(sid)
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "ready"
+    assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 3
+
+
+def test_mixer_with_more_jobs_than_count_stays_at_count(scalar):
+    P.create_manual_fact(user_id=1, kind="skill", name="Python")
+    jobs = []
+    for title in ("A", "B", "C", "D"):
+        j = J.create_job(title, user_id=1); J.run_intake(j); jobs.append(j)
+    sid = I.create_session("mixer", jobs, 3, user_id=1)
+    I.build_session(sid)
+    assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 3
+
+
+def test_service_clamps_count(scalar):
+    j = _ready_job()
+    big = I.create_session("job", [j], 50, user_id=1)
+    assert scalar("SELECT question_count FROM interview_sessions WHERE id = ?", big) == 10
+    small = I.create_session("job", [j], 1, user_id=1)
+    assert scalar("SELECT question_count FROM interview_sessions WHERE id = ?", small) == 3
+    I.build_session(small)
+    assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", small) == 3
+
+
+def test_generation_caps_model_overage():
+    """The provider may return more questions than asked (the mock always
+    returns its full canned bank); only `count` of them may be inserted."""
+    from app.services import questions as Q
+
+    j = _ready_job()
+    assert len(Q.generate_for_session(j, 2, user_id=1)) == 2
+
+
+# ── Setup retry: original shape, single claim, honest quota ──
+
+
+def test_retry_rebuilds_requested_shape_not_ten(client, scalar, monkeypatch):
+    """A failed 5-question session with an opener retries as exactly that —
+    not as the old hardcoded 10 questions with the opener dropped."""
+    from app.llm.base import LLMError
+
+    j = _ready_job()
+    real = I.questions.generate_for_session
+
+    def boom(job_id, n, *, user_id):
+        raise LLMError("provider down")
+
+    monkeypatch.setattr(I.questions, "generate_for_session", boom)
+    client.post("/app/interviews", data={"scope": "job", "job_id": public_id_of("jobs", j), "count": "5"})
+    sid = scalar("SELECT id FROM interview_sessions ORDER BY id DESC LIMIT 1")
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "error"
+    # The failed build must not leave an orphan opener in the job's history.
+    assert scalar("SELECT COUNT(*) FROM questions WHERE job_id = ? AND skill = 'introduction'", j) == 0
+
+    monkeypatch.setattr(I.questions, "generate_for_session", real)
+    client.post(f"/app/interviews/{public_id_of('interview_sessions', sid)}/setup/retry")
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "ready"
+    assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 5
+    assert _opener_count(scalar, sid) == 1
+
+
+def test_retry_on_non_errored_session_is_a_noop(client, scalar):
+    """Retrying a session that isn't in the error state (double-click, already
+    rebuilt) must not rebuild it or charge another unit."""
+    j = _ready_job()
+    client.post("/app/interviews", data={"scope": "job", "job_id": public_id_of("jobs", j), "count": "5"})
+    sid = scalar("SELECT id FROM interview_sessions ORDER BY id DESC LIMIT 1")
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "ready"
+    before = scalar("SELECT COUNT(*) FROM llm_requests WHERE kind = 'questions'")
+
+    client.post(f"/app/interviews/{public_id_of('interview_sessions', sid)}/setup/retry")
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "ready"
+    assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 5
+    assert scalar("SELECT COUNT(*) FROM llm_requests WHERE kind = 'questions'") == before
+
+
+def test_reset_setup_claims_only_errored_sessions(scalar):
+    j = _ready_job()
+    sid = I.create_session("job", [j], 3, user_id=1)
+    assert I.reset_setup(sid) is False  # generating — not claimable
+    I.build_session(sid)
+    assert I.reset_setup(sid) is False  # ready — not claimable
+    I._fail_setup(sid, "boom")
+    assert I.reset_setup(sid) is True   # error — claimed, run fenced forward
+    assert scalar("SELECT setup_run FROM interview_sessions WHERE id = ?", sid) == 1
+
+
+def test_failed_start_spends_no_quota_and_says_so(client, scalar):
+    """A start that can't create a session (stale/unknown job) charges nothing
+    and lands on a visible explanation instead of a silent bounce."""
+    r = client.post(
+        "/app/interviews",
+        data={"scope": "job", "job_id": "00000000-0000-4000-8000-000000000000", "count": "5"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert r.headers["location"] == "/app/interviews?err=nojobs"
+    assert scalar("SELECT COUNT(*) FROM llm_requests WHERE kind = 'questions'") == 0
+    assert "couldn't start" in client.get("/app/interviews?err=nojobs").text
+
+    # A successful start charges exactly one unit.
+    j = _ready_job()
+    client.post("/app/interviews", data={"scope": "job", "job_id": public_id_of("jobs", j), "count": "5"})
+    assert scalar("SELECT COUNT(*) FROM llm_requests WHERE kind = 'questions'") == 1
+
+
+# ── Completed sessions are closed to new answers ──
+
+
+def test_answer_rejected_after_session_completes(client, scalar):
+    j = _ready_job()
+    sid = I.create_session("job", [j], 3, user_id=1)
+    I.build_session(sid)
+    aid = I.submit_answer(sid, "one real answer")
+    I.grade_answer(aid)
+    I.finish_session(sid, assess=False)
+    assert scalar("SELECT status FROM interview_sessions WHERE id = ?", sid) == "completed"
+
+    assert I.submit_answer(sid, "too late") is None
+    r = client.post(
+        f"/app/interviews/{public_id_of('interview_sessions', sid)}/answer",
+        data={"answer_text": "too late"},
+    )
+    assert r.headers.get("hx-redirect")  # bounced back to the session page
+    assert scalar(
+        "SELECT COUNT(*) FROM session_answers WHERE session_id = ? AND answer_text IS NOT NULL", sid
+    ) == 1
+
+
+# ── Opener resilience and build fencing ──
+
+
+def test_opener_failure_falls_back_to_full_count(scalar, monkeypatch):
+    """If the opener can't be created the session generates the full count
+    instead of silently coming up one question short."""
+    j = _ready_job()
+    sid = I.create_session("job", [j], 5, user_id=1, include_opener=True)
+    monkeypatch.setattr(I.questions, "create_opener_question", lambda job_id, *, user_id: None)
+    requested = {}
+    real = I.questions.generate_for_session
+
+    def spy(job_id, n, *, user_id):
+        requested["n"] = n
+        return real(job_id, n, user_id=user_id)
+
+    monkeypatch.setattr(I.questions, "generate_for_session", spy)
+    I.build_session(sid)
+    assert requested["n"] == 5  # no slot reserved for the missing opener
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "ready"
+    assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 5
+    assert _opener_count(scalar, sid) == 0
+
+
+def test_superseded_build_discards_its_work(scalar, monkeypatch):
+    """A build overtaken mid-flight (reaped to error, then retried — setup_run
+    bumped) must not mark the session ready or install its slots."""
+    j = _ready_job()
+    sid = I.create_session("job", [j], 3, user_id=1)
+    real = I.questions.generate_for_session
+
+    def bump_run_mid_build(job_id, n, *, user_id):
+        conn = get_conn()
+        try:
+            conn.execute(
+                "UPDATE interview_sessions SET setup_run = setup_run + 1 WHERE id = ?", (sid,)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return real(job_id, n, user_id=user_id)
+
+    monkeypatch.setattr(I.questions, "generate_for_session", bump_run_mid_build)
+    I.build_session(sid)
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "generating"
+    assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 0
+
+
+def test_build_without_claim_does_no_work(scalar, monkeypatch):
+    """build_session on a session that isn't in 'generating' (retry enqueued
+    without winning the claim) must not touch the provider or the slots."""
+    j = _ready_job()
+    sid = I.create_session("job", [j], 3, user_id=1)
+    I.build_session(sid)  # → ready, 3 slots
+
+    def boom(job_id, n, *, user_id):
+        raise AssertionError("a claimless build must not generate")
+
+    monkeypatch.setattr(I.questions, "generate_for_session", boom)
+    I.build_session(sid)  # no claim — returns without work
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "ready"
+    assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 3
 
 
 # ── Header progress badge stays in sync with the HTMX question flow ──

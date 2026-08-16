@@ -6,6 +6,12 @@
 <h1>Interviews</h1>
 <p class="muted page-lede">Run a focused mock interview against a single role, or a mixed quiz across several. Questions are generated fresh at the start of every session — from the roles you pick and your profile.</p>
 
+{% if start_error == 'nojobs' %}
+<div class="notice" role="alert">
+  <span>{{ icon('briefcase', 15) }} That session couldn't start — none of the selected jobs are ready to interview against. They may have been removed or are still analyzing.</span>
+</div>
+{% endif %}
+
 <section class="card">
   {% set can_mix = ready_jobs | length >= 2 %}
   {% if ready_jobs %}

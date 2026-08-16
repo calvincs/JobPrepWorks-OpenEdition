@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 
 from app import db as dberr
 
@@ -20,6 +21,14 @@ from app.user_errors import USER_ERROR_GENERIC
 log = logging.getLogger(__name__)
 
 DIFFICULTY_RANK = {"easy": 0, "medium": 1, "hard": 2}
+
+# The one place session size is bounded. The HTTP form offers 5/10, but the
+# service enforces the range so no caller (or future form) can slip past it.
+MIN_QUESTIONS, MAX_QUESTIONS = 3, 10
+
+
+def clamp_count(count: int) -> int:
+    return min(max(count, MIN_QUESTIONS), MAX_QUESTIONS)
 
 
 def _mark_terminal_error(sql: str, params: tuple) -> None:
@@ -106,12 +115,14 @@ def interviewable_jobs(conn=None, *, user_id: int) -> list:
 
 
 def create_session(
-    scope: str, job_ids: list[int], count: int = 10, *, user_id: int
+    scope: str, job_ids: list[int], count: int = 10, *, user_id: int,
+    include_opener: bool = False,
 ) -> int | None:
     """Create an interview session over one or more jobs. Questions aren't built
     here — the session starts in setup_status 'generating' and build_session()
-    fills it in the background. Returns the session id, or None if no selected
-    job is interviewable."""
+    fills it in the background. The requested count and opener choice are stored
+    on the row so a setup retry rebuilds the same session the user asked for.
+    Returns the session id, or None if no selected job is interviewable."""
     conn = get_conn()
     try:
         interviewable = {r["id"] for r in interviewable_jobs(conn, user_id=user_id)}
@@ -121,13 +132,17 @@ def create_session(
         if not job_ids:
             return None
         cur = conn.execute(
-            """INSERT INTO interview_sessions (user_id, scope, job_id, mixer_job_ids_json, setup_status, busy_since)
-               VALUES (?, ?, ?, ?, 'generating', datetime('now')) RETURNING id""",
+            """INSERT INTO interview_sessions
+               (user_id, scope, job_id, mixer_job_ids_json, question_count,
+                include_opener, setup_status, busy_since)
+               VALUES (?, ?, ?, ?, ?, ?, 'generating', datetime('now')) RETURNING id""",
             (
                 user_id,
                 scope,
                 job_ids[0] if scope == "job" else None,
                 json.dumps(job_ids) if scope != "job" else None,
+                clamp_count(count),
+                1 if (include_opener and scope == "job") else 0,
             ),
         )
         session_id = cur.fetchone()[0]
@@ -183,21 +198,25 @@ def _build_study_drill(
     conn = get_conn()
     try:
         owner = conn.execute(
-            "SELECT user_id FROM interview_sessions WHERE id = ?", (session_id,)
+            "SELECT user_id, setup_status, setup_run FROM interview_sessions WHERE id = ?",
+            (session_id,),
         ).fetchone()
     finally:
         conn.close()
     if owner is None:  # session deleted before the build started
         return
+    if owner["setup_status"] != "generating":  # no claim, no LLM work
+        return
+    run = owner["setup_run"]
     try:
         qid = questions.generate_for_topic(
             job_id, topic, why_it_matters, how_it_will_be_tested, user_id=owner["user_id"]
         )
     except LLMError as exc:
-        _fail_setup(session_id, str(exc))
+        _fail_setup(session_id, str(exc), run=run)
         return
     if qid is None:
-        _fail_setup(session_id, "Couldn't generate a practice question for this topic.")
+        _fail_setup(session_id, "Couldn't generate a practice question for this topic.", run=run)
         return
 
     conn = get_conn()
@@ -207,14 +226,18 @@ def _build_study_drill(
             "INSERT INTO session_answers (session_id, question_id, position) VALUES (?, ?, 1)",
             (session_id, qid),
         )
-        conn.execute(
-            "UPDATE interview_sessions SET setup_status = 'ready', setup_error = NULL WHERE id = ?",
-            (session_id,),
+        cur = conn.execute(
+            "UPDATE interview_sessions SET setup_status = 'ready', setup_error = NULL "
+            "WHERE id = ? AND setup_status = 'generating' AND setup_run = ?",
+            (session_id, run),
         )
+        if cur.rowcount == 0:  # superseded — discard this build's work
+            conn.rollback()
+            return
         conn.commit()
     except dberr.IntegrityError:
         conn.rollback()
-        _fail_setup(session_id, "This drill's job was changed or removed while it was building.")
+        _fail_setup(session_id, "This drill's job was changed or removed while it was building.", run=run)
     finally:
         conn.close()
 
@@ -231,12 +254,16 @@ def _distribute(count: int, n: int) -> list[int]:
     return [base + (1 if i < extra else 0) for i in range(n)]
 
 
-def build_session(session_id: int, count: int = 10, include_opener: bool = False) -> None:
+def build_session(
+    session_id: int, count: int | None = None, include_opener: bool | None = None
+) -> None:
     """Background: generate this session's questions (per job, tailored by the
     profile) and lay them out as answerable slots. Sets setup_status ready/error
     for the polling UI. Round-robins across jobs so multi-job sessions stay varied.
     include_opener (job-scope only) prepends a graded 'tell me about yourself'
-    opener in place of one generated question, so `count` stays the total."""
+    opener in place of one generated question, so `count` stays the total.
+    count/include_opener default to what the session row stored at creation, so
+    a retry rebuilds the shape the user originally asked for."""
     try:
         _build_session(session_id, count, include_opener)
     except Exception:  # never strand setup_status at 'generating' (A10)
@@ -248,7 +275,9 @@ def build_session(session_id: int, count: int = 10, include_opener: bool = False
         )
 
 
-def _build_session(session_id: int, count: int = 10, include_opener: bool = False) -> None:
+def _build_session(
+    session_id: int, count: int | None = None, include_opener: bool | None = None
+) -> None:
     conn = get_conn()
     try:
         session = conn.execute(
@@ -260,20 +289,46 @@ def _build_session(session_id: int, count: int = 10, include_opener: bool = Fals
     finally:
         conn.close()
 
+    # Only the build that holds the 'generating' claim may do LLM work; the
+    # setup_run captured here fences every terminal write below, so a build
+    # superseded mid-flight (reaped to error, then retried) discards its work
+    # instead of overwriting the newer run's state.
+    if session["setup_status"] != "generating":
+        return
+    run = session["setup_run"]
+    if count is None:
+        count = session["question_count"] or MAX_QUESTIONS
+    count = clamp_count(count)
+    if include_opener is None:
+        include_opener = bool(session["include_opener"])
+
     if not job_ids:
-        _fail_setup(session_id, "This session has no jobs to draw questions from.")
+        _fail_setup(session_id, "This session has no jobs to draw questions from.", run=run)
         return
 
-    # The opener replaces one generated question (count stays the total).
-    opener_slots = 1 if (include_opener and session["scope"] == "job") else 0
-    per_job = _distribute(max(count - opener_slots, len(job_ids)), len(job_ids))
+    # The opener replaces one generated question (count stays the total). It is
+    # deterministic (no LLM), so create it first: if it can't be created (job
+    # re-extracting, say), fall back to generating the full count instead of
+    # silently shipping a short session.
+    opener_id = None
+    if include_opener and session["scope"] == "job":
+        opener_id = questions.create_opener_question(job_ids[0], user_id=session["user_id"])
+    slots = count - (1 if opener_id is not None else 0)
+
+    # `count` is the contract: with more jobs than slots, sample which jobs this
+    # session draws from rather than silently exceeding the requested size.
+    if len(job_ids) > slots:
+        job_ids = random.sample(job_ids, slots)
+
+    per_job = _distribute(slots, len(job_ids))
     try:
         per_job_ids = [
             questions.generate_for_session(jid, n, user_id=session["user_id"])
             for jid, n in zip(job_ids, per_job)
         ]
     except LLMError as exc:
-        _fail_setup(session_id, str(exc))
+        _delete_question(opener_id)  # no orphan opener polluting future dedup blocks
+        _fail_setup(session_id, str(exc), run=run)
         return
 
     # Round-robin merge so consecutive questions come from different jobs.
@@ -284,16 +339,12 @@ def _build_session(session_id: int, count: int = 10, include_opener: bool = Fals
                 ordered.append(ids[tier])
 
     if not ordered:
-        _fail_setup(session_id, "No questions could be generated for this session.")
+        _delete_question(opener_id)
+        _fail_setup(session_id, "No questions could be generated for this session.", run=run)
         return
 
-    # Opener is created only after generation succeeded, so a failed build
-    # doesn't leave an orphan opener repeating into future existing-question
-    # dedup blocks. Served first via position 1.
-    if opener_slots:
-        opener_id = questions.create_opener_question(job_ids[0], user_id=session["user_id"])
-        if opener_id is not None:
-            ordered.insert(0, opener_id)
+    if opener_id is not None:  # served first via position 1
+        ordered.insert(0, opener_id)
 
     conn = get_conn()
     try:
@@ -304,42 +355,72 @@ def _build_session(session_id: int, count: int = 10, include_opener: bool = Fals
                 "INSERT INTO session_answers (session_id, question_id, position) VALUES (?, ?, ?)",
                 (session_id, qid, position),
             )
-        conn.execute(
-            "UPDATE interview_sessions SET setup_status = 'ready', setup_error = NULL WHERE id = ?",
-            (session_id,),
+        cur = conn.execute(
+            "UPDATE interview_sessions SET setup_status = 'ready', setup_error = NULL "
+            "WHERE id = ? AND setup_status = 'generating' AND setup_run = ?",
+            (session_id, run),
         )
+        if cur.rowcount == 0:
+            # A newer run owns this session (or it errored/was reaped since we
+            # started) — discard everything this stale build produced.
+            conn.rollback()
+            return
         conn.commit()
     except dberr.IntegrityError:
         # The session or its questions were deleted while it was building (e.g. a
         # job was removed mid-generation). Roll back and mark it errored if the
         # session still exists; if it's gone too, _fail_setup is a harmless no-op.
         conn.rollback()
-        _fail_setup(session_id, "This interview's job was changed or removed while it was building.")
+        _fail_setup(
+            session_id,
+            "This interview's job was changed or removed while it was building.",
+            run=run,
+        )
     finally:
         conn.close()
 
 
-def reset_setup(session_id: int) -> None:
-    """Put a failed session back into 'generating' so build_session can retry."""
+def _delete_question(question_id: int | None) -> None:
+    """Remove a question created for a build that then failed (e.g. the opener),
+    so retries don't accumulate duplicates in the job's question history."""
+    if question_id is None:
+        return
     conn = get_conn()
     try:
-        conn.execute(
-            "UPDATE interview_sessions SET setup_status = 'generating', setup_error = NULL, "
-            "busy_since = datetime('now') WHERE id = ? AND setup_status = 'error'",
-            (session_id,),
-        )
+        conn.execute("DELETE FROM questions WHERE id = ?", (question_id,))
         conn.commit()
     finally:
         conn.close()
 
 
-def _fail_setup(session_id: int, message: str) -> None:
+def reset_setup(session_id: int) -> bool:
+    """Claim a failed session back into 'generating' so build_session can retry.
+    Bumps setup_run so any still-running older build is fenced out. Returns True
+    only when this call won the claim — a lost claim (double-click, already
+    rebuilt) must enqueue nothing and charge nothing."""
     conn = get_conn()
     try:
-        conn.execute(
-            "UPDATE interview_sessions SET setup_status = 'error', setup_error = ? WHERE id = ?",
-            (message, session_id),
+        cur = conn.execute(
+            "UPDATE interview_sessions SET setup_status = 'generating', setup_error = NULL, "
+            "busy_since = datetime('now'), setup_run = setup_run + 1 "
+            "WHERE id = ? AND setup_status = 'error'",
+            (session_id,),
         )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def _fail_setup(session_id: int, message: str, run: int | None = None) -> None:
+    conn = get_conn()
+    try:
+        sql = "UPDATE interview_sessions SET setup_status = 'error', setup_error = ? WHERE id = ?"
+        params: tuple = (message, session_id)
+        if run is not None:  # a fenced build must not clobber a newer run's state
+            sql += " AND setup_run = ?"
+            params += (run,)
+        conn.execute(sql, params)
         conn.commit()
     finally:
         conn.close()
@@ -382,13 +463,18 @@ def current_answer_row(answers) -> dict | None:
 
 
 def submit_answer(session_id: int, answer_text: str) -> int | None:
-    """Record the answer on the current question; returns the answer row id to grade."""
+    """Record the answer on the current question; returns the answer row id to
+    grade, or None when there is nothing to answer — including a session that
+    already finished (a stale tab or replayed POST must not add answers to a
+    completed session whose assessment has run)."""
     conn = get_conn()
     try:
         row = conn.execute(
-            """SELECT id FROM session_answers
-               WHERE session_id = ? AND grade_status = 'unanswered'
-               ORDER BY position LIMIT 1""",
+            """SELECT a.id FROM session_answers a
+               JOIN interview_sessions s ON s.id = a.session_id
+               WHERE a.session_id = ? AND a.grade_status = 'unanswered'
+                 AND s.status = 'active'
+               ORDER BY a.position LIMIT 1""",
             (session_id,),
         ).fetchone()
         if row is None:

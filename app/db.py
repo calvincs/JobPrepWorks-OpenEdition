@@ -755,6 +755,15 @@ MIGRATIONS: list[str] = [
     -- The one local account.
     INSERT INTO users (id, name) VALUES (1, '');
     """,
+    """
+    -- Sessions remember the shape they were requested with, so a setup retry
+    -- rebuilds what was asked for instead of a hardcoded default, and carry a
+    -- setup_run counter bumped on every retry claim so a superseded build
+    -- (reaped or retried past) can never overwrite a newer run's state.
+    ALTER TABLE interview_sessions ADD COLUMN question_count INTEGER;
+    ALTER TABLE interview_sessions ADD COLUMN include_opener INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE interview_sessions ADD COLUMN setup_run INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 
