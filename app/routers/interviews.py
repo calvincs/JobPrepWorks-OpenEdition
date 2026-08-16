@@ -146,6 +146,14 @@ def retry_setup(
     request: Request, background: BackgroundTasks, session_id: int = Depends(owned_session)
 ):
     uid = current_user_id(request)
+    session, _, _ = interviews_service.get_session(session_id, uid)
+    if session is None:
+        return HTMLResponse("", headers={"HX-Redirect": "/app/interviews"})
+    if session["scope"] == "study":
+        # A drill's topic parameters live only in its original build call —
+        # build_session can't rebuild one, so a drill retry would charge for a
+        # guaranteed failure. The error partial offers a fresh drill instead.
+        return templates.TemplateResponse(request, "partials/session_setup.html", {"session": session})
     usage.check(uid, "questions")
     # Only the request that wins the error → generating claim enqueues a build
     # (and gets charged) — a double-click or an already-recovered session must
@@ -154,9 +162,9 @@ def retry_setup(
     if interviews_service.reset_setup(session_id):
         usage.record(uid, "questions")
         background.add_task(interviews_service.build_session, session_id)
-    session, _, _ = interviews_service.get_session(session_id, uid)
-    if session is None:
-        return HTMLResponse("", headers={"HX-Redirect": "/app/interviews"})
+        session, _, _ = interviews_service.get_session(session_id, uid)
+        if session is None:
+            return HTMLResponse("", headers={"HX-Redirect": "/app/interviews"})
     return templates.TemplateResponse(request, "partials/session_setup.html", {"session": session})
 
 

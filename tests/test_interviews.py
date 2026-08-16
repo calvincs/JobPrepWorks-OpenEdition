@@ -17,7 +17,7 @@ def test_session_builds_questions_at_start(scalar):
     j = _ready_job()
     sid = I.create_session("job", [j], 5, user_id=1)
     assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "generating"
-    I.build_session(sid, 5)
+    I.build_session(sid)
     assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "ready"
     assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) > 0
 
@@ -25,7 +25,7 @@ def test_session_builds_questions_at_start(scalar):
 def test_full_interview_produces_assessment(scalar):
     j = _ready_job()
     sid = I.create_session("job", [j], 5, user_id=1)
-    I.build_session(sid, 5)
+    I.build_session(sid)
     while True:
         _, answers, _ = I.get_session(sid, 1)
         current = I.current_answer_row(answers)
@@ -44,7 +44,7 @@ def test_mixer_draws_from_multiple_jobs(scalar):
     a = J.create_job("Backend role", user_id=1); J.run_intake(a)
     b = J.create_job("Data role", user_id=1); J.run_intake(b)
     sid = I.create_session("mixer", [a, b], 6, user_id=1)
-    I.build_session(sid, 6)
+    I.build_session(sid)
     distinct_jobs = scalar(
         """SELECT COUNT(DISTINCT q.job_id) FROM session_answers sa
            JOIN questions q ON q.id = sa.question_id WHERE sa.session_id = ?""",
@@ -56,7 +56,7 @@ def test_mixer_draws_from_multiple_jobs(scalar):
 def test_finish_with_no_answers_deletes_session(client, scalar):
     j = _ready_job()
     sid = I.create_session("job", [j], 5, user_id=1)
-    I.build_session(sid, 5)
+    I.build_session(sid)
     client.post(f"/app/interviews/{public_id_of('interview_sessions', sid)}/finish", follow_redirects=False)
     assert scalar("SELECT COUNT(*) FROM interview_sessions WHERE id = ?", sid) == 0
 
@@ -85,7 +85,7 @@ def test_build_session_survives_deleted_questions(scalar, monkeypatch):
         conn.close()
     sid = I.create_session("job", [j], 3, user_id=1)
     monkeypatch.setattr(I.questions, "generate_for_session", lambda jid, n, *, user_id: qids)
-    I.build_session(sid, 3)  # must not raise
+    I.build_session(sid)  # must not raise
     assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "error"
 
 
@@ -121,7 +121,7 @@ def test_session_pages_breadcrumb_back_into_app(client, scalar):
     assert 'href="/app/study"' in drill.text and 'href="/study"' not in drill.text
 
     iid = I.create_session("job", [j], 3, user_id=1)
-    I.build_session(iid, 3)
+    I.build_session(iid)
     page = client.get(f"/app/interviews/{public_id_of('interview_sessions', iid)}")
     assert page.status_code == 200
     assert 'href="/app/interviews"' in page.text and 'href="/interviews"' not in page.text
@@ -326,7 +326,7 @@ def test_followup_flow_via_routes(client, scalar, monkeypatch):
     monkeypatch.setitem(mock_provider.CANNED["AnswerGrade"], "score", 2)
     j = _ready_job()
     sid = I.create_session("job", [j], 3, user_id=1)
-    I.build_session(sid, 3)
+    I.build_session(sid)
     spid = public_id_of("interview_sessions", sid)
 
     # Answer the first question — background grading runs synchronously in TestClient.
@@ -411,7 +411,7 @@ def test_history_rows_link_under_the_app_prefix(client):
 
 def test_job_session_opener_served_first_and_count_kept(scalar, monkeypatch):
     j = _ready_job()
-    sid = I.create_session("job", [j], 5, user_id=1)
+    sid = I.create_session("job", [j], 5, user_id=1, include_opener=True)
     # The mock provider ignores the requested count (fixed canned bank), so the
     # "opener replaces one generated question" property is asserted on the
     # count passed down to generation rather than on the slot total.
@@ -423,7 +423,7 @@ def test_job_session_opener_served_first_and_count_kept(scalar, monkeypatch):
         return real(job_id, n, user_id=user_id)
 
     monkeypatch.setattr(I.questions, "generate_for_session", spy)
-    I.build_session(sid, 5, include_opener=True)
+    I.build_session(sid)
     assert requested["n"] == 4  # one slot reserved for the opener
     first_q = scalar(
         """SELECT q.skill FROM session_answers sa JOIN questions q ON q.id = sa.question_id
@@ -439,8 +439,8 @@ def test_job_session_opener_served_first_and_count_kept(scalar, monkeypatch):
 
 def test_opener_criteria_name_the_jobs_must_haves(scalar):
     j = _ready_job()
-    sid = I.create_session("job", [j], 5, user_id=1)
-    I.build_session(sid, 5, include_opener=True)
+    sid = I.create_session("job", [j], 5, user_id=1, include_opener=True)
+    I.build_session(sid)
     criteria = scalar(
         "SELECT ideal_answer_criteria FROM questions WHERE job_id = ? AND skill = 'introduction'", j
     )
@@ -454,17 +454,18 @@ def test_opener_criteria_name_the_jobs_must_haves(scalar):
 def test_opener_absent_when_skipped_or_not_job_scope(scalar):
     j1, j2 = _ready_job(), _ready_job("Data role")
     sid = I.create_session("job", [j1], 5, user_id=1)
-    I.build_session(sid, 5, include_opener=False)
+    I.build_session(sid)
     assert _opener_count(scalar, sid) == 0
-    mixer = I.create_session("mixer", [j1, j2], 6, user_id=1)
-    I.build_session(mixer, 6, include_opener=True)  # scope guard wins over the flag
+    # Scope guard wins over the flag: a non-job session never stores an opener.
+    mixer = I.create_session("mixer", [j1, j2], 6, user_id=1, include_opener=True)
+    I.build_session(mixer)
     assert _opener_count(scalar, mixer) == 0
 
 
 def test_opener_grades_like_a_normal_question(scalar):
     j = _ready_job()
-    sid = I.create_session("job", [j], 5, user_id=1)
-    I.build_session(sid, 5, include_opener=True)
+    sid = I.create_session("job", [j], 5, user_id=1, include_opener=True)
+    I.build_session(sid)
     aid = I.submit_answer(sid, "I'm a backend engineer with eight years of Python.")
     I.grade_answer(aid)
     assert scalar("SELECT grade_status FROM session_answers WHERE id = ?", aid) == "ready"
@@ -665,9 +666,10 @@ def test_opener_failure_falls_back_to_full_count(scalar, monkeypatch):
 
 def test_superseded_build_discards_its_work(scalar, monkeypatch):
     """A build overtaken mid-flight (reaped to error, then retried — setup_run
-    bumped) must not mark the session ready or install its slots."""
+    bumped) must not mark the session ready or install its slots, and must not
+    leave its opener behind for the newer run to duplicate."""
     j = _ready_job()
-    sid = I.create_session("job", [j], 3, user_id=1)
+    sid = I.create_session("job", [j], 3, user_id=1, include_opener=True)
     real = I.questions.generate_for_session
 
     def bump_run_mid_build(job_id, n, *, user_id):
@@ -685,6 +687,7 @@ def test_superseded_build_discards_its_work(scalar, monkeypatch):
     I.build_session(sid)
     assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "generating"
     assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 0
+    assert scalar("SELECT COUNT(*) FROM questions WHERE job_id = ? AND skill = 'introduction'", j) == 0
 
 
 def test_build_without_claim_does_no_work(scalar, monkeypatch):
@@ -703,6 +706,113 @@ def test_build_without_claim_does_no_work(scalar, monkeypatch):
     assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 3
 
 
+def test_reaped_build_still_lands_ready(scalar, monkeypatch):
+    """The reaper contract (reaper.py): a reaped row a live pipeline later
+    finishes just becomes ready. A build flipped to 'error' by the reaper — but
+    NOT retried, so setup_run is unchanged — must still land its finished work."""
+    j = _ready_job()
+    sid = I.create_session("job", [j], 3, user_id=1)
+    real = I.questions.generate_for_session
+
+    def reap_mid_build(job_id, n, *, user_id):
+        conn = get_conn()
+        try:
+            conn.execute(
+                "UPDATE interview_sessions SET setup_status = 'error', setup_error = 'reaped' "
+                "WHERE id = ?", (sid,)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return real(job_id, n, user_id=user_id)
+
+    monkeypatch.setattr(I.questions, "generate_for_session", reap_mid_build)
+    I.build_session(sid)
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "ready"
+    assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 3
+
+
+def test_superseded_build_leaves_no_orphan_questions(scalar, monkeypatch):
+    """A discarded build must remove every question it generated, not just its
+    opener — stranded rows would pollute the avoid-repeats block forever."""
+    j = _ready_job()
+    sid = I.create_session("job", [j], 3, user_id=1, include_opener=True)
+    real = I.questions.generate_for_session
+
+    def bump_run_mid_build(job_id, n, *, user_id):
+        conn = get_conn()
+        try:
+            conn.execute(
+                "UPDATE interview_sessions SET setup_run = setup_run + 1 WHERE id = ?", (sid,)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return real(job_id, n, user_id=user_id)
+
+    monkeypatch.setattr(I.questions, "generate_for_session", bump_run_mid_build)
+    I.build_session(sid)
+    assert scalar("SELECT COUNT(*) FROM questions WHERE job_id = ?", j) == 0
+
+
+def test_build_skips_jobs_deleted_after_session_creation(scalar):
+    """The stored job list can go stale — a mixer whose job was deleted between
+    creation and build draws the full count from the jobs still alive."""
+    P.create_manual_fact(user_id=1, kind="skill", name="Python")
+    a = J.create_job("Alive", user_id=1); J.run_intake(a)
+    b = J.create_job("Doomed", user_id=1); J.run_intake(b)
+    sid = I.create_session("mixer", [a, b], 4, user_id=1)
+    J.delete_job(b, 1)
+    I.build_session(sid)
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "ready"
+    assert scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid) == 4
+    assert scalar(
+        """SELECT COUNT(DISTINCT q.job_id) FROM session_answers sa
+           JOIN questions q ON q.id = sa.question_id WHERE sa.session_id = ?""",
+        sid,
+    ) == 1
+
+
+def test_unexpected_build_failure_is_fenced_and_cleans_up(scalar, monkeypatch):
+    """A non-LLMError crash mid-build errors the session through the run-fenced
+    path (not the unfenced catch-all) and removes the opener it created."""
+    from app.user_errors import USER_ERROR_GENERIC
+
+    j = _ready_job()
+    sid = I.create_session("job", [j], 5, user_id=1, include_opener=True)
+
+    def crash(job_id, n, *, user_id):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(I.questions, "generate_for_session", crash)
+    I.build_session(sid)
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "error"
+    assert scalar("SELECT setup_error FROM interview_sessions WHERE id = ?", sid) == USER_ERROR_GENERIC
+    assert scalar("SELECT COUNT(*) FROM questions WHERE job_id = ? AND skill = 'introduction'", j) == 0
+
+
+def test_drill_retry_is_not_a_charged_dead_end(client, scalar, monkeypatch):
+    """An errored study drill can't be rebuilt by the generic session retry (its
+    topic lives only in the original build call) — the retry endpoint must not
+    claim, charge, or enqueue for it, and the partial offers a fresh drill."""
+    from app.llm.base import LLMError
+
+    j = _ready_job()
+    sid = I.create_study_drill(j, "Topic", 1)
+    monkeypatch.setattr(
+        I.questions, "generate_for_topic",
+        lambda *a, **k: (_ for _ in ()).throw(LLMError("provider down")),
+    )
+    I.build_study_drill(sid, j, "Topic", "why", "how")
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "error"
+
+    r = client.post(f"/app/interviews/{public_id_of('interview_sessions', sid)}/setup/retry")
+    assert scalar("SELECT setup_status FROM interview_sessions WHERE id = ?", sid) == "error"
+    assert scalar("SELECT setup_run FROM interview_sessions WHERE id = ?", sid) == 0  # no claim
+    assert scalar("SELECT COUNT(*) FROM llm_requests WHERE kind = 'questions'") == 0  # no charge
+    assert "Back to Study" in r.text and "Try again" not in r.text
+
+
 # ── Header progress badge stays in sync with the HTMX question flow ──
 
 
@@ -713,7 +823,7 @@ def test_header_progress_refreshes_out_of_band(client, scalar):
     'Question 5 of 10' bug)."""
     j = _ready_job()
     sid = I.create_session("job", [j], 5, user_id=1)
-    I.build_session(sid, 5)
+    I.build_session(sid)
     spid = public_id_of("interview_sessions", sid)
     total = scalar("SELECT COUNT(*) FROM session_answers WHERE session_id = ?", sid)
 

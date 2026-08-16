@@ -215,6 +215,10 @@ def _build_study_drill(
     except LLMError as exc:
         _fail_setup(session_id, str(exc), run=run)
         return
+    except Exception:
+        log.exception("study drill %s setup failed unexpectedly", session_id)
+        _fail_setup(session_id, USER_ERROR_GENERIC, run=run)
+        return
     if qid is None:
         _fail_setup(session_id, "Couldn't generate a practice question for this topic.", run=run)
         return
@@ -226,18 +230,21 @@ def _build_study_drill(
             "INSERT INTO session_answers (session_id, question_id, position) VALUES (?, ?, 1)",
             (session_id, qid),
         )
-        cur = conn.execute(
-            "UPDATE interview_sessions SET setup_status = 'ready', setup_error = NULL "
-            "WHERE id = ? AND setup_status = 'generating' AND setup_run = ?",
-            (session_id, run),
-        )
-        if cur.rowcount == 0:  # superseded — discard this build's work
-            conn.rollback()
+        if not _finish_setup(conn, session_id, run):
+            conn.rollback()  # superseded — discard this build's work, question included
+            _delete_questions([qid])
             return
         conn.commit()
     except dberr.IntegrityError:
         conn.rollback()
-        _fail_setup(session_id, "This drill's job was changed or removed while it was building.", run=run)
+        _abort_setup(
+            session_id, run,
+            "This drill's job was changed or removed while it was building.", [qid],
+        )
+    except Exception:
+        conn.rollback()
+        log.exception("study drill %s setup failed unexpectedly", session_id)
+        _abort_setup(session_id, run, USER_ERROR_GENERIC, [qid])
     finally:
         conn.close()
 
@@ -254,19 +261,19 @@ def _distribute(count: int, n: int) -> list[int]:
     return [base + (1 if i < extra else 0) for i in range(n)]
 
 
-def build_session(
-    session_id: int, count: int | None = None, include_opener: bool | None = None
-) -> None:
+def build_session(session_id: int) -> None:
     """Background: generate this session's questions (per job, tailored by the
     profile) and lay them out as answerable slots. Sets setup_status ready/error
     for the polling UI. Round-robins across jobs so multi-job sessions stay varied.
-    include_opener (job-scope only) prepends a graded 'tell me about yourself'
-    opener in place of one generated question, so `count` stays the total.
-    count/include_opener default to what the session row stored at creation, so
-    a retry rebuilds the shape the user originally asked for."""
+    The session's stored question_count and include_opener decide its shape —
+    creation and retry both build exactly what the user asked for. The opener
+    (job-scope only) replaces one generated question, so count stays the total."""
     try:
-        _build_session(session_id, count, include_opener)
+        _build_session(session_id)
     except Exception:  # never strand setup_status at 'generating' (A10)
+        # Backstop for failures before the claim was read — past that point
+        # _build_session handles its own errors with a setup_run fence. This
+        # write can only be status-fenced (the run is unknown here).
         log.exception("session %s setup failed unexpectedly", session_id)
         _mark_terminal_error(
             "UPDATE interview_sessions SET setup_status = 'error', setup_error = ? "
@@ -275,9 +282,7 @@ def build_session(
         )
 
 
-def _build_session(
-    session_id: int, count: int | None = None, include_opener: bool | None = None
-) -> None:
+def _build_session(session_id: int) -> None:
     conn = get_conn()
     try:
         session = conn.execute(
@@ -296,39 +301,50 @@ def _build_session(
     if session["setup_status"] != "generating":
         return
     run = session["setup_run"]
-    if count is None:
-        count = session["question_count"] or MAX_QUESTIONS
-    count = clamp_count(count)
-    if include_opener is None:
-        include_opener = bool(session["include_opener"])
+    count = clamp_count(session["question_count"] or MAX_QUESTIONS)  # pre-migration rows: 10
+    include_opener = bool(session["include_opener"])
 
+    # The stored job list can go stale between creation and (re)build — jobs
+    # deleted or re-extracting. Draw only from jobs that are still
+    # interviewable so slots aren't wasted on dead ids.
+    live = {r["id"] for r in interviewable_jobs(user_id=session["user_id"])}
+    job_ids = [jid for jid in job_ids if jid in live]
     if not job_ids:
         _fail_setup(session_id, "This session has no jobs to draw questions from.", run=run)
         return
 
-    # The opener replaces one generated question (count stays the total). It is
-    # deterministic (no LLM), so create it first: if it can't be created (job
-    # re-extracting, say), fall back to generating the full count instead of
-    # silently shipping a short session.
-    opener_id = None
-    if include_opener and session["scope"] == "job":
-        opener_id = questions.create_opener_question(job_ids[0], user_id=session["user_id"])
-    slots = count - (1 if opener_id is not None else 0)
-
-    # `count` is the contract: with more jobs than slots, sample which jobs this
-    # session draws from rather than silently exceeding the requested size.
-    if len(job_ids) > slots:
-        job_ids = random.sample(job_ids, slots)
-
-    per_job = _distribute(slots, len(job_ids))
+    # Track every question row this build creates so any failure or discard
+    # path can remove them — stranded rows would otherwise pollute the
+    # avoid-repeats block fed to future generations (and duplicate openers).
+    created: list[int] = []
     try:
-        per_job_ids = [
-            questions.generate_for_session(jid, n, user_id=session["user_id"])
-            for jid, n in zip(job_ids, per_job)
-        ]
+        # The opener replaces one generated question (count stays the total).
+        # It is deterministic (no LLM), so create it first: if it can't be
+        # created (job re-extracting, say), fall back to generating the full
+        # count instead of silently shipping a short session.
+        opener_id = None
+        if include_opener and session["scope"] == "job":
+            opener_id = questions.create_opener_question(job_ids[0], user_id=session["user_id"])
+            if opener_id is not None:
+                created.append(opener_id)
+        slots = count - (1 if opener_id is not None else 0)
+
+        # `count` is the contract: with more jobs than slots, sample which jobs
+        # this session draws from rather than silently exceeding the requested size.
+        if len(job_ids) > slots:
+            job_ids = random.sample(job_ids, slots)
+
+        per_job_ids: list[list[int]] = []
+        for jid, n in zip(job_ids, _distribute(slots, len(job_ids))):
+            ids = questions.generate_for_session(jid, n, user_id=session["user_id"])
+            created.extend(ids)
+            per_job_ids.append(ids)
     except LLMError as exc:
-        _delete_question(opener_id)  # no orphan opener polluting future dedup blocks
-        _fail_setup(session_id, str(exc), run=run)
+        _abort_setup(session_id, run, str(exc), created)
+        return
+    except Exception:
+        log.exception("session %s setup failed unexpectedly", session_id)
+        _abort_setup(session_id, run, USER_ERROR_GENERIC, created)
         return
 
     # Round-robin merge so consecutive questions come from different jobs.
@@ -339,8 +355,7 @@ def _build_session(
                 ordered.append(ids[tier])
 
     if not ordered:
-        _delete_question(opener_id)
-        _fail_setup(session_id, "No questions could be generated for this session.", run=run)
+        _abort_setup(session_id, run, "No questions could be generated for this session.", created)
         return
 
     if opener_id is not None:  # served first via position 1
@@ -355,39 +370,62 @@ def _build_session(
                 "INSERT INTO session_answers (session_id, question_id, position) VALUES (?, ?, ?)",
                 (session_id, qid, position),
             )
-        cur = conn.execute(
-            "UPDATE interview_sessions SET setup_status = 'ready', setup_error = NULL "
-            "WHERE id = ? AND setup_status = 'generating' AND setup_run = ?",
-            (session_id, run),
-        )
-        if cur.rowcount == 0:
-            # A newer run owns this session (or it errored/was reaped since we
-            # started) — discard everything this stale build produced.
+        if not _finish_setup(conn, session_id, run):
+            # A retry superseded this build — discard everything it produced.
             conn.rollback()
+            _delete_questions(created)
             return
         conn.commit()
     except dberr.IntegrityError:
         # The session or its questions were deleted while it was building (e.g. a
         # job was removed mid-generation). Roll back and mark it errored if the
-        # session still exists; if it's gone too, _fail_setup is a harmless no-op.
+        # session still exists; if it's gone too, the abort is a harmless no-op
+        # (cascaded questions are already gone).
         conn.rollback()
-        _fail_setup(
-            session_id,
+        _abort_setup(
+            session_id, run,
             "This interview's job was changed or removed while it was building.",
-            run=run,
+            created,
         )
+    except Exception:
+        conn.rollback()
+        log.exception("session %s setup failed unexpectedly", session_id)
+        _abort_setup(session_id, run, USER_ERROR_GENERIC, created)
     finally:
         conn.close()
 
 
-def _delete_question(question_id: int | None) -> None:
-    """Remove a question created for a build that then failed (e.g. the opener),
+def _finish_setup(conn, session_id: int, run: int) -> bool:
+    """The one terminal ready-write for session builds, fenced by setup_run
+    alone: a build that was merely reaped (no retry claimed it — run unchanged)
+    still lands its finished work, per the reaper contract; a build superseded
+    by a retry (run bumped) does not. Runs inside the caller's transaction;
+    returns whether the write landed."""
+    cur = conn.execute(
+        "UPDATE interview_sessions SET setup_status = 'ready', setup_error = NULL "
+        "WHERE id = ? AND setup_run = ?",
+        (session_id, run),
+    )
+    return cur.rowcount > 0
+
+
+def _abort_setup(session_id: int, run: int, message: str, created: list[int]) -> None:
+    """Fail a build: remove every question it created (no orphans feeding the
+    avoid-repeats block, no duplicate openers), then error the session — fenced
+    by setup_run so a superseded build can't clobber a newer run's state."""
+    _delete_questions(created)
+    _fail_setup(session_id, message, run=run)
+
+
+def _delete_questions(question_ids: list[int]) -> None:
+    """Remove questions created for a build that then failed or was discarded,
     so retries don't accumulate duplicates in the job's question history."""
-    if question_id is None:
+    if not question_ids:
         return
     conn = get_conn()
     try:
-        conn.execute("DELETE FROM questions WHERE id = ?", (question_id,))
+        marks = ",".join("?" for _ in question_ids)
+        conn.execute(f"DELETE FROM questions WHERE id IN ({marks})", tuple(question_ids))
         conn.commit()
     finally:
         conn.close()

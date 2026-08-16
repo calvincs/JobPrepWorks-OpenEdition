@@ -1,8 +1,15 @@
 {% if session.setup_status == 'error' %}
 <section class="card" id="session-setup">
+  {% if session.scope == 'study' %}
+  {# A drill can't be rebuilt in place (its topic lives only in the original
+     build call) — offer a fresh start instead of a retry that must fail. #}
+  <p class="error-text">Couldn't build this drill: {{ session.setup_error }}</p>
+  <a class="btn" href="/app/study">Back to Study — start a fresh drill</a>
+  {% else %}
   <p class="error-text">Couldn't build this interview: {{ session.setup_error }}</p>
   <button class="primary" hx-post="/app/interviews/{{ session.public_id }}/setup/retry"
           hx-target="#session-setup" hx-swap="outerHTML">Try again</button>
+  {% endif %}
 </section>
 {% else %}
 <section class="card working" id="session-setup" role="status" aria-busy="true"

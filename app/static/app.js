@@ -60,6 +60,17 @@
   document.addEventListener("DOMContentLoaded", syncTabsFromUrl);
   document.body.addEventListener("htmx:historyRestore", syncTabsFromUrl);
 
+  /* ── One-shot flash param ──
+     ?err= carries a post-redirect notice (e.g. a session start that found no
+     usable jobs). The server renders it once; scrub it from the URL so
+     refresh, back-navigation, and bookmarks don't resurrect a stale banner. */
+  document.addEventListener("DOMContentLoaded", function () {
+    var url = new URL(location.href);
+    if (!url.searchParams.has("err")) return;
+    url.searchParams.delete("err");
+    history.replaceState(history.state, "", url);
+  });
+
   /* ── ⌘/Ctrl+Enter submits the containing form ── */
   document.addEventListener("keydown", function (e) {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter" &&
