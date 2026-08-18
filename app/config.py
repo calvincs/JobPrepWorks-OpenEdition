@@ -82,6 +82,55 @@ def _flag(name: str, default: str = "") -> bool:
     return os.getenv(name, default).strip().lower() in ("1", "true", "yes", "on")
 
 
+def _provider_name() -> str:
+    return os.getenv("LLM_PROVIDER", ANTHROPIC).strip().lower()
+
+
+# The conventional per-vendor key name for each provider family. Only the name
+# belonging to the configured provider is ever read: accepting any vendor key
+# regardless of provider meant an unrelated OPENAI_API_KEY exported in your
+# shell would be sent to Anthropic and come back as a 401 that reads like
+# "my valid key is invalid". Ollama and mock need no key.
+VENDOR_KEY_ENV = {
+    ANTHROPIC: "ANTHROPIC_API_KEY",
+    OPENAI: "OPENAI_API_KEY",
+    OPENROUTER: "OPENROUTER_API_KEY",
+    # Generic OpenAI-wire servers (llama.cpp, vLLM, a proxy): OPENAI_API_KEY is
+    # the name their own clients read, and the endpoint is whatever you pointed
+    # LLM_BASE_URL at. Set LLM_API_KEY instead if that is not what you want.
+    "openai-compat": "OPENAI_API_KEY",
+    "llamacpp": "OPENAI_API_KEY",
+    "vllm": "OPENAI_API_KEY",
+}
+
+
+def api_key_env_name(provider: str | None = None) -> str | None:
+    """The per-vendor env var this provider will fall back to, if any."""
+    return VENDOR_KEY_ENV.get(provider or _provider_name())
+
+
+def _env_key(name: str | None) -> str | None:
+    """One env var, stripped. A trailing space or newline pasted into .env is
+    otherwise sent verbatim and rejected upstream as an invalid key."""
+    value = (os.getenv(name) or "").strip() if name else ""
+    return value or None
+
+
+def key_for(provider: str) -> str | None:
+    """The API key to use when calling `provider`. LLM_API_KEY wins for every
+    provider; otherwise it is the vendor name belonging to THAT provider.
+
+    Takes the provider explicitly because the app calls two of them: the main
+    pipelines use LLM_PROVIDER, while Company Pulse follows RESEARCH_PROVIDER,
+    which .env.example invites you to point somewhere else entirely.
+    """
+    return _env_key("LLM_API_KEY") or _env_key(api_key_env_name(provider))
+
+
+def _resolve_api_key() -> str | None:
+    return key_for(_provider_name())
+
+
 @dataclass(frozen=True)
 class Settings:
     # ── SQLite (app/db.py) ──────────────────────────────────────────────────
@@ -94,28 +143,26 @@ class Settings:
     )
 
     # ── LLM provider (app/llm/) ─────────────────────────────────────────────
-    llm_provider: str = field(
-        default_factory=lambda: os.getenv("LLM_PROVIDER", ANTHROPIC).strip().lower()
-    )
+    llm_provider: str = field(default_factory=lambda: _provider_name())
     llm_model: str = field(default_factory=lambda: os.getenv("LLM_MODEL", "").strip())
     # For OpenAI-compatible endpoints (OpenAI, OpenRouter, llama.cpp, vLLM) and
     # native Ollama. Optional for OpenAI/OpenRouter/Ollama: each has a default.
     llm_base_url: str | None = field(default_factory=lambda: os.getenv("LLM_BASE_URL"))
-    # One key setting, with the conventional per-vendor names accepted too, so
-    # an ANTHROPIC_API_KEY / OPENAI_API_KEY already in your shell just works.
-    llm_api_key: str | None = field(
-        default_factory=lambda: os.getenv("LLM_API_KEY")
-        or os.getenv("OPENROUTER_API_KEY")
-        or os.getenv("OPENAI_API_KEY")
-        or os.getenv("ANTHROPIC_API_KEY")
-    )
+    # One key setting, with the conventional per-vendor name for the CONFIGURED
+    # provider accepted too, so an ANTHROPIC_API_KEY / OPENAI_API_KEY already in
+    # your shell just works. See _resolve_api_key.
+    llm_api_key: str | None = field(default_factory=lambda: _resolve_api_key())
     # Ollama only: per-request context window (Ollama's own default of 4096
     # truncates long documents and postings well before the model does).
-    llm_num_ctx: int = field(default_factory=lambda: int(os.getenv("LLM_NUM_CTX", "16384")))
+    llm_num_ctx: int = field(
+        default_factory=lambda: int(os.getenv("LLM_NUM_CTX", "16384"))
+    )
     # Per-call timeout (seconds). Bounds how long a background pipeline can pin
     # a threadpool worker when the upstream hangs. Local models on modest
     # hardware are slow — raise this rather than lowering LLM_NUM_CTX.
-    llm_timeout_s: float = field(default_factory=lambda: float(os.getenv("LLM_TIMEOUT_S", "180")))
+    llm_timeout_s: float = field(
+        default_factory=lambda: float(os.getenv("LLM_TIMEOUT_S", "180"))
+    )
     # Capacity of the anyio threadpool that runs BOTH sync route handlers and
     # sync BackgroundTasks (the LLM pipelines). anyio's default (~40) lets a
     # burst of long LLM tasks starve page loads; the work is I/O-bound.
@@ -280,6 +327,24 @@ def pulse_available() -> bool:
     return search_backend_name() != "none"
 
 
+def _missing_key_warning(provider: str, *, what: str = "calls") -> str:
+    """No key for this provider. If some OTHER vendor's key is sitting in the
+    environment, say so — that is the setup that used to fail as an upstream
+    401 on a key the user never meant to send."""
+    want = api_key_env_name(provider)
+    if want:
+        msg = f"{want} is unset — {provider} {what} will fail. Set it (or LLM_API_KEY) in .env."
+    else:
+        msg = f"No API key is set for {provider} — {what} will fail. Set LLM_API_KEY in .env."
+    others = sorted(
+        {name for name in VENDOR_KEY_ENV.values() if name != want and _env_key(name)}
+    )
+    if others:
+        verb = "is" if len(others) == 1 else "are"
+        msg += f" ({', '.join(others)} {verb} set, but not used for {provider}.)"
+    return msg
+
+
 def llm_config_warnings() -> list[str]:
     """Boot-time checks on the provider configuration, logged by the lifespan.
     These are the mistakes that otherwise surface ten minutes later as a
@@ -294,17 +359,29 @@ def llm_config_warnings() -> list[str]:
     if provider == MOCK:
         return ["LLM_PROVIDER=mock — canned responses only, no model is being called."]
     if not resolved_model():
-        out.append(f"LLM_MODEL is unset and {provider} has no default — set it in .env.")
+        out.append(
+            f"LLM_MODEL is unset and {provider} has no default — set it in .env."
+        )
     if provider == ANTHROPIC and not settings.llm_api_key:
-        out.append("ANTHROPIC_API_KEY is unset — Anthropic calls will fail.")
+        out.append(_missing_key_warning(provider))
     if provider in OPENAI_COMPAT_ALIASES:
         if not resolved_base_url():
             out.append(
                 f"LLM_BASE_URL is unset and {provider} has no default base URL — set it in .env."
             )
         elif provider in (OPENAI, OPENROUTER) and not settings.llm_api_key:
-            key = "OPENAI_API_KEY" if provider == OPENAI else "OPENROUTER_API_KEY"
-            out.append(f"No API key found for {provider} — set LLM_API_KEY (or {key}).")
+            out.append(_missing_key_warning(provider))
+    research = research_provider_name()
+    if (
+        settings.research_enabled
+        and search_backend_name() == "native"
+        and research != provider
+        and not key_for(research)
+    ):
+        # RESEARCH_PROVIDER points at another vendor, so the main provider's key
+        # does not apply. The Pulse tab still renders either way; without this
+        # the only symptom is a failure at click time.
+        out.append("Company Pulse: " + _missing_key_warning(research, what="research"))
     if settings.research_enabled and search_backend_name() == "none":
         out.append(
             "Company Pulse is enabled but no web search is available for this provider — "

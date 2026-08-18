@@ -45,6 +45,7 @@ from app.config import (
     ANTHROPIC,
     OPENAI,
     OPENROUTER,
+    key_for,
     research_provider_name,
     resolved_base_url,
     resolved_model,
@@ -770,11 +771,22 @@ def _research_model() -> str:
     return settings.research_model or resolved_model()
 
 
+def _research_api_key() -> str | None:
+    """The key for whichever provider is running this pulse. Usually the main
+    one — but RESEARCH_PROVIDER can point research at a different vendor, and
+    then LLM_PROVIDER's key is both wrong for the endpoint and a credential the
+    user never meant to send there."""
+    provider = research_provider_name()
+    if provider == settings.llm_provider:
+        return settings.llm_api_key
+    return key_for(provider)
+
+
 def _anthropic_research(name: str, budget: Budget) -> dict:
     import anthropic
 
     client = anthropic.Anthropic(
-        api_key=settings.llm_api_key or None, timeout=settings.research_timeout_s, max_retries=1
+        api_key=_research_api_key(), timeout=settings.research_timeout_s, max_retries=1
     )
     tools = [
         {"type": ANTHROPIC_SEARCH_TOOL, "name": "web_search",
@@ -840,7 +852,7 @@ def _openrouter_research(name: str, budget: Budget) -> dict:
     from app.config import OPENROUTER_BASE_URL
     from app.llm.base import openrouter_extra_body, openrouter_headers
 
-    key = settings.llm_api_key
+    key = _research_api_key()
     if not key:
         raise PulseFailed("OPENROUTER_API_KEY is not set — company research can't run.")
     client = openai.OpenAI(
@@ -888,7 +900,7 @@ def _openai_research(name: str, budget: Budget) -> dict:
     import openai
 
     client = openai.OpenAI(
-        api_key=settings.llm_api_key or None,
+        api_key=_research_api_key(),
         base_url=resolved_base_url(),
         timeout=settings.research_timeout_s,
         max_retries=1,

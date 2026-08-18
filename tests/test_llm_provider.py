@@ -32,6 +32,9 @@ def _reset_provider_cache():
 
 def test_anthropic_needs_only_a_key(monkeypatch):
     """The one provider with a model default: a key alone is enough to start."""
+    # Settings() fills unspecified fields from the real environment, so a
+    # developer's own LLM_MODEL in .env would otherwise stand in for the default.
+    monkeypatch.delenv("LLM_MODEL", raising=False)
     p = _provider_for(monkeypatch, llm_provider="anthropic", llm_api_key="sk-ant-test")
     assert type(p).__name__ == "AnthropicProvider"
     assert p.model == config.DEFAULT_ANTHROPIC_MODEL
@@ -229,3 +232,58 @@ def test_research_enabled_false_disables_pulse_regardless(monkeypatch):
         Settings(llm_provider="anthropic", llm_model="m", research_enabled=False),
     )
     assert not config.pulse_available()
+
+
+# ── API key resolution ───────────────────────────────────────────────────────
+#
+# Settings() reads the environment through default_factory, so these drive the
+# real env vars rather than passing overrides.
+
+_KEY_VARS = ("LLM_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY")
+
+
+def _key_for(monkeypatch, provider, **env):
+    for var in _KEY_VARS:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("LLM_PROVIDER", provider)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    return Settings().llm_api_key
+
+
+def test_another_vendors_key_is_not_sent_to_anthropic(monkeypatch):
+    """An OPENAI_API_KEY exported in the shell must not be handed to Anthropic:
+    it used to be, and surfaced as an upstream 401 on a key the user never
+    meant to send."""
+    assert _key_for(monkeypatch, "anthropic", OPENAI_API_KEY="sk-proj-openai") is None
+    assert (
+        _key_for(monkeypatch, "anthropic", OPENAI_API_KEY="sk-proj-openai", ANTHROPIC_API_KEY="sk-ant-x")
+        == "sk-ant-x"
+    )
+
+
+def test_openrouter_ignores_an_openai_key(monkeypatch):
+    assert _key_for(monkeypatch, "openrouter", OPENAI_API_KEY="sk-proj-openai") is None
+    assert _key_for(monkeypatch, "openrouter", OPENROUTER_API_KEY="sk-or-x") == "sk-or-x"
+
+
+def test_llm_api_key_wins_over_the_vendor_name(monkeypatch):
+    key = _key_for(monkeypatch, "anthropic", LLM_API_KEY="explicit", ANTHROPIC_API_KEY="vendor")
+    assert key == "explicit"
+
+
+def test_key_is_stripped(monkeypatch):
+    """A trailing newline pasted into .env is otherwise sent verbatim and
+    rejected upstream as an invalid key."""
+    assert _key_for(monkeypatch, "anthropic", ANTHROPIC_API_KEY=" sk-ant-x\n") == "sk-ant-x"
+    assert _key_for(monkeypatch, "anthropic", ANTHROPIC_API_KEY="   ") is None
+
+
+def test_missing_key_warning_names_the_key_that_is_set_instead(monkeypatch):
+    for var in _KEY_VARS:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-proj-openai")
+    monkeypatch.setattr(config, "settings", Settings(llm_provider="anthropic", llm_api_key=None))
+    warning = "\n".join(config.llm_config_warnings())
+    assert "ANTHROPIC_API_KEY is unset" in warning
+    assert "OPENAI_API_KEY is set" in warning
