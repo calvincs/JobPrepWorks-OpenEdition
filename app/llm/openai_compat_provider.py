@@ -20,10 +20,9 @@ import re
 from typing import TypeVar
 
 import openai
-from pydantic import BaseModel, ValidationError
-
 from app.config import settings
 from app.llm.base import LLMError
+from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -39,10 +38,14 @@ def _strip_fences(text: str) -> str:
 def _status_error(exc: "openai.APIStatusError") -> LLMError:
     """Upstream error body -> log; user sees only the status class. The internal
     base URL and provider message never reach the browser (see app/user_errors)."""
-    log.warning("LLM endpoint error %s: %s", exc.status_code, getattr(exc, "message", ""))
+    log.warning(
+        "LLM endpoint error %s: %s", exc.status_code, getattr(exc, "message", "")
+    )
     if exc.status_code == 429:
         return LLMError("The AI service is rate-limited right now — try again shortly.")
-    return LLMError(f"The AI service returned an error ({exc.status_code}) — try again.")
+    return LLMError(
+        f"The AI service returned an error ({exc.status_code}) — try again."
+    )
 
 
 class OpenAICompatProvider:
@@ -72,7 +75,7 @@ class OpenAICompatProvider:
         try:
             return self.client.chat.completions.create(
                 model=self.model,
-                max_tokens=max_tokens,
+                max_completion_tokens=max_tokens,
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": prompt},
@@ -82,7 +85,9 @@ class OpenAICompatProvider:
             )
         except openai.APIConnectionError as exc:
             log.warning("could not reach LLM endpoint at %s", self.client.base_url)
-            raise LLMError("Could not reach the AI service — check your network.") from exc
+            raise LLMError(
+                "Could not reach the AI service — check your network."
+            ) from exc
 
     def complete(self, *, system: str, prompt: str, max_tokens: int = 16000) -> str:
         try:
@@ -91,10 +96,14 @@ class OpenAICompatProvider:
             raise _status_error(exc) from exc
         content = response.choices[0].message.content or ""
         if not content and response.choices[0].finish_reason == "length":
-            raise LLMError("Model ran out of tokens before producing output (thinking model?). Increase max_tokens.")
+            raise LLMError(
+                "Model ran out of tokens before producing output (thinking model?). Increase max_tokens."
+            )
         return content
 
-    def extract(self, *, system: str, prompt: str, schema: type[T], max_tokens: int = 16000) -> T:
+    def extract(
+        self, *, system: str, prompt: str, schema: type[T], max_tokens: int = 16000
+    ) -> T:
         json_schema = schema.model_json_schema()
         system_with_schema = (
             f"{system}\n\n"
@@ -115,7 +124,10 @@ class OpenAICompatProvider:
             kwargs = {"response_format": response_format} if use_response_format else {}
             try:
                 response = self._create(
-                    system=system_with_schema, prompt=prompt, max_tokens=max_tokens, **kwargs
+                    system=system_with_schema,
+                    prompt=prompt,
+                    max_tokens=max_tokens,
+                    **kwargs,
                 )
             except openai.APIStatusError as exc:
                 if use_response_format:
@@ -135,5 +147,9 @@ class OpenAICompatProvider:
                 return schema.model_validate(json.loads(_strip_fences(content)))
             except (json.JSONDecodeError, ValidationError) as exc:
                 last_exc = exc
-        log.warning("model output failed validation for %s", schema.__name__, exc_info=last_exc)
-        raise LLMError("The AI returned an unusable response — try again.") from last_exc
+        log.warning(
+            "model output failed validation for %s", schema.__name__, exc_info=last_exc
+        )
+        raise LLMError(
+            "The AI returned an unusable response — try again."
+        ) from last_exc
