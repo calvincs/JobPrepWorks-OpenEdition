@@ -20,9 +20,10 @@ import re
 from typing import TypeVar
 
 import openai
+from pydantic import BaseModel, ValidationError
+
 from app.config import settings
 from app.llm.base import LLMError
-from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
 

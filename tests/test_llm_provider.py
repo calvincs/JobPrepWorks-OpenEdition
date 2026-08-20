@@ -287,3 +287,28 @@ def test_missing_key_warning_names_the_key_that_is_set_instead(monkeypatch):
     warning = "\n".join(config.llm_config_warnings())
     assert "ANTHROPIC_API_KEY is unset" in warning
     assert "OPENAI_API_KEY is set" in warning
+
+
+# ── Wire format ──────────────────────────────────────────────────────────────
+
+
+def test_openai_compat_sends_max_completion_tokens(monkeypatch):
+    """Newer OpenAI models reject max_tokens with a 400 in favor of
+    max_completion_tokens; OpenRouter, llama.cpp, and vLLM all accept the new
+    name, so it is the one that must be on the wire."""
+    from types import SimpleNamespace
+
+    from app.llm.openai_compat_provider import OpenAICompatProvider
+
+    p = OpenAICompatProvider(model="m", base_url="http://box/v1", api_key="k")
+    sent = {}
+
+    def fake_create(**kwargs):
+        sent.update(kwargs)
+        message = SimpleNamespace(content="ok")
+        return SimpleNamespace(choices=[SimpleNamespace(message=message, finish_reason="stop")])
+
+    monkeypatch.setattr(p.client.chat.completions, "create", fake_create)
+    assert p.complete(system="s", prompt="p", max_tokens=123) == "ok"
+    assert sent["max_completion_tokens"] == 123
+    assert "max_tokens" not in sent
